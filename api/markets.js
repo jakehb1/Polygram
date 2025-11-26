@@ -4,9 +4,6 @@
 // kind=new      -> newest markets by createdAt desc
 // kind=trending -> markets by 24h volume desc
 // kind=volume   -> markets by total volume desc
-//
-// Gamma supports "order" and "ascending" query params and exposes fields like
-// createdAt, volume24hr, volumeNum on markets. 
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -53,7 +50,6 @@ module.exports = async (req, res) => {
     }
 
     const data = await resp.json();
-    // Gamma returns an array of markets by default. 
     return res.status(200).json(data);
   } catch (err) {
     console.error("markets error", err);
