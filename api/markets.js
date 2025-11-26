@@ -1,4 +1,12 @@
-// Simple proxy to Polymarket Gamma /markets endpoint.
+// api/markets.js
+// Proxy to Polymarket Gamma /markets endpoint with simple sorting presets.
+//
+// kind=new      -> newest markets by createdAt desc
+// kind=trending -> markets by 24h volume desc
+// kind=volume   -> markets by total volume desc
+//
+// Gamma supports "order" and "ascending" query params and exposes fields like
+// createdAt, volume24hr, volumeNum on markets. 
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -17,7 +25,20 @@ module.exports = async (req, res) => {
   const params = new URLSearchParams();
   params.set("limit", String(limit));
 
-  // You can tune ordering here based on `kind` if desired.
+  // Choose sort based on kind
+  if (kind === "trending") {
+    // high 24h volume first
+    params.set("order", "volume24hr");
+    params.set("ascending", "false");
+  } else if (kind === "volume") {
+    // high all-time volume first
+    params.set("order", "volumeNum");
+    params.set("ascending", "false");
+  } else {
+    // "new" and everything else -> newest markets
+    params.set("order", "createdAt");
+    params.set("ascending", "false");
+  }
 
   const url = `https://gamma-api.polymarket.com/markets?${params.toString()}`;
 
@@ -32,6 +53,7 @@ module.exports = async (req, res) => {
     }
 
     const data = await resp.json();
+    // Gamma returns an array of markets by default. 
     return res.status(200).json(data);
   } catch (err) {
     console.error("markets error", err);
