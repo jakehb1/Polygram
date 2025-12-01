@@ -5,7 +5,7 @@
   <title>Polyamorous – Polymarket Mini App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <style>
+  <style>
     :root {
       /* Light theme defaults */
       --bg: #f4f4f5;
@@ -70,6 +70,70 @@
     .app {
       max-width: 420px;
       margin: 4px auto 40px;
+    }
+
+    /* Brand / logo */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 14px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.22), transparent 60%),
+                  rgba(248, 250, 252, 0.85);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    body.theme-dark .brand {
+      background: radial-gradient(circle at 0 0, rgba(250, 204, 21, 0.16), transparent 60%),
+                  rgba(15, 23, 42, 0.96);
+      border-color: rgba(30, 64, 175, 0.7);
+      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.6);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: conic-gradient(from 210deg, #22c55e, #0ea5e9, #a855f7, #f97316, #22c55e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f9fafb;
+      font-weight: 800;
+      font-size: 14px;
+      box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.9);
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      background: linear-gradient(120deg, #0f172a, #4f46e5, #db2777);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    body.theme-dark .brand-title {
+      background: linear-gradient(120deg, #e5e7eb, #38bdf8, #fb7185);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .brand-tagline {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-secondary);
     }
 
     .card {
@@ -522,6 +586,14 @@
 </head>
 <body>
   <div class="app">
+    <div class="brand">
+      <div class="brand-mark">PA</div>
+      <div class="brand-text">
+        <div class="brand-title">Polyamorous</div>
+        <div class="brand-tagline">Polymarket Mini App</div>
+      </div>
+    </div>
+
     <!-- WELCOME + WALLETS CARD -->
     <div class="card">
       <div class="card-header-row">
@@ -625,13 +697,13 @@
     <div class="card" id="marketsCard">
       <div class="card-header">📊 Markets</div>
       <div class="pill-label">
-        Browse markets on Polyamorous by trend, volume, or recency.
+        Browse markets on Polyamorous by trend, volume, recency, or category.
       </div>
       <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 13px; color: var(--text-secondary);">
         <li>🔥 Trending – Hot markets by 24h volume</li>
-        <li>📈 Volume – Markets by total volume</li>
+        <li>📈 Volume – Markets by recent 24h volume</li>
         <li>🆕 New – Recently created markets</li>
-        <li>📂 Category – Browse by category (coming soon)</li>
+        <li>📂 Category – Browse by category</li>
         <li>🔍 Search – Search by keywords (coming soon)</li>
       </ul>
 
@@ -799,28 +871,7 @@
       }
     }
 
-    // -------- Markets --------
-   async function fetchMarkets(kind = "new", limit = 5, categorySlug = null) {
-  const statusEl = document.getElementById("marketsStatus");
-  try {
-    const qs = new URLSearchParams();
-    qs.set("kind", kind);
-    qs.set("limit", String(limit));
-    if (categorySlug) qs.set("category", categorySlug);
-
-    statusEl.textContent = `Loading ${kind} markets…`;
-    const res = await fetch(`/api/markets?${qs.toString()}`);
-    if (!res.ok) throw new Error("http " + res.status);
-    const data = await res.json();
-    statusEl.textContent = `Showing ${kind} markets`;
-    return Array.isArray(data) ? data : (data.markets || []);
-  } catch (err) {
-    console.error("fetchMarkets error", err);
-    statusEl.textContent = "Error loading markets.";
-    return [];
-  }
-}
-
+    // -------- Market helpers --------
     function formatDollarsShort(value) {
       const n = Number(value || 0);
       if (!isFinite(n)) return "N/A";
@@ -856,6 +907,111 @@
       };
     }
 
+    // Local safety filter to drop old / dead markets even if backend missed any
+    function filterMarketsLocally(markets, kind) {
+      const now = Date.now();
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      const MAX_AGE_DAYS = 90;
+      const maxAgeMs = MAX_AGE_DAYS * ONE_DAY_MS;
+
+      return markets.filter((m) => {
+        if (typeof m.closed === "boolean" && m.closed) return false;
+        if (typeof m.active === "boolean" && !m.active) return false;
+
+        const endStr = m.endDateIso || m.endDate;
+        if (endStr) {
+          const t = Date.parse(endStr);
+          if (!Number.isNaN(t) && t < now - ONE_DAY_MS) return false;
+        }
+
+        const createdStr = m.createdAt || m.created_at;
+        if (createdStr) {
+          const t = Date.parse(createdStr);
+          if (!Number.isNaN(t) && t < now - maxAgeMs) return false;
+        }
+
+        const vol24 = Number(m.volume24hr ?? m.volume24Hrs ?? 0);
+        if (kind === "trending" || kind === "volume") {
+          if (!Number.isFinite(vol24) || vol24 <= 0) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // -------- Fetch markets (with category support) --------
+    async function fetchMarkets(kind = "new", limit = 5, categorySlug = null) {
+      const statusEl = document.getElementById("marketsStatus");
+      try {
+        const qs = new URLSearchParams();
+        qs.set("kind", kind);
+        qs.set("limit", String(limit));
+        if (categorySlug) qs.set("category", categorySlug);
+
+        statusEl.textContent = `Loading ${kind} markets…`;
+        const res = await fetch(`/api/markets?${qs.toString()}`);
+        if (!res.ok) throw new Error("http " + res.status);
+        const data = await res.json();
+        let markets = Array.isArray(data) ? data : (data.markets || []);
+        markets = filterMarketsLocally(markets, kind);
+        statusEl.textContent = `Showing ${kind} markets`;
+        return markets;
+      } catch (err) {
+        console.error("fetchMarkets error", err);
+        statusEl.textContent = "Error loading markets.";
+        return [];
+      }
+    }
+
+    // -------- Categories helper --------
+    async function pickCategoryAndLoad() {
+      try {
+        const res = await fetch("/api/categories");
+        if (!res.ok) throw new Error("http " + res.status);
+        const json = await res.json();
+        const cats = json.categories || [];
+        if (!cats.length) {
+          tg?.showAlert?.("No categories available right now.");
+          return;
+        }
+
+        if (tg && typeof tg.showPopup === "function") {
+          const buttons = cats.slice(0, 7).map((c) => ({
+            id: c.slug,
+            type: "default",
+            text: c.label,
+          }));
+
+          tg.showPopup(
+            {
+              title: "Choose a category",
+              buttons: [...buttons, { id: "cancel", type: "cancel", text: "Cancel" }],
+            },
+            async (buttonId) => {
+              if (!buttonId || buttonId === "cancel") return;
+              const markets = await fetchMarkets("category", 10, buttonId);
+              renderMarketsList(markets);
+            }
+          );
+        } else {
+          const names = cats.map((c) => c.label).join(", ");
+          const chosen = prompt("Category (" + names + "):");
+          if (!chosen) return;
+
+          const slug =
+            cats.find((c) => c.label.toLowerCase() === chosen.toLowerCase())?.slug ||
+            chosen.toLowerCase().replace(/\s+/g, "-");
+
+          const markets = await fetchMarkets("category", 10, slug);
+          renderMarketsList(markets);
+        }
+      } catch (e) {
+        console.error("pickCategoryAndLoad error", e);
+        tg?.showAlert?.("Failed to load categories.");
+      }
+    }
+
+    // -------- Render markets --------
     function renderMarketsList(markets) {
       const container = document.getElementById("marketsList");
       if (!markets.length) {
@@ -889,7 +1045,7 @@
         const volRow = document.createElement("div");
         volRow.className = "market-line";
         volRow.innerHTML =
-          `<span class="market-label">🚀 Volume:</span> <span class="market-value">${volume != null ? formatDollarsShort(volume) : "N/A"}</span>`;
+          `<span class="market-label">🚀 Volume (24h):</span> <span class="market-value">${volume != null ? formatDollarsShort(volume) : "N/A"}</span>`;
         div.appendChild(volRow);
 
         const endsRow = document.createElement("div");
@@ -939,10 +1095,10 @@
         return;
       }
 
-      const [yesTokenId, noTokenId] = tokenIds;
+      const yesTokenId = tokenIds[0];
+      const noTokenId = tokenIds[1] || tokenIds[0];
       const tokenId = outcomeSide === "YES" ? yesTokenId : noTokenId;
 
-      // Demo values – replace with proper size/price UI when ready
       const size = 10;
       const price = 0.5;
 
@@ -1115,37 +1271,36 @@
       document.getElementById("updatesBtn").onclick = () =>
         tg?.openLink?.("https://docs.polymarket.com/changelog");
 
-      // You can change this invite link to your actual bot handle:
       document.getElementById("inviteBtn").onclick = () =>
         tg?.openTelegramLink?.("https://t.me/polyamorousbot");
 
       // Markets filters
       document.querySelectorAll("[data-markets-filter]").forEach((btn) => {
-  const kind = btn.getAttribute("data-markets-filter");
+        const kind = btn.getAttribute("data-markets-filter");
 
-  if (kind === "category") {
-    btn.addEventListener("click", () => {
-      pickCategoryAndLoad();
-    });
-    return;
-  }
+        if (kind === "category") {
+          btn.addEventListener("click", () => {
+            pickCategoryAndLoad();
+          });
+          return;
+        }
 
-  if (kind === "search") {
-    btn.addEventListener("click", () => {
-      tg?.showAlert?.("Search is coming soon.");
-    });
-    return;
-  }
+        if (kind === "search") {
+          btn.addEventListener("click", () => {
+            tg?.showAlert?.("Search is coming soon.");
+          });
+          return;
+        }
 
-  btn.addEventListener("click", async () => {
-    const mappedKind = kind === "new" ? "new" : kind; // trending / volume / new
-    const markets = await fetchMarkets(mappedKind, 10);
-    renderMarketsList(markets);
-  });
-});
+        btn.addEventListener("click", async () => {
+          const mappedKind = kind === "new" ? "new" : kind; // trending / volume / new
+          const markets = await fetchMarkets(mappedKind, 10);
+          renderMarketsList(markets);
+        });
+      });
 
-// On initial load
-fetchMarkets("new", 10).then(renderMarketsList);
+      // Load default "new" markets
+      fetchMarkets("new", 10).then(renderMarketsList);
 
       // Portfolio buttons
       document.getElementById("positionsBtn").onclick = () =>
