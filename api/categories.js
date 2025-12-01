@@ -1,5 +1,7 @@
 // api/categories.js
-// Derive a category list from current Polymarket markets.
+// Derive a category list from *live-ish* Polymarket markets.
+// Uses defensive filtering identical to markets.js so we only
+// include categories from up-to-date markets.
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -14,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   const params = new URLSearchParams();
-  params.set("limit", "500"); // pull a decent sample
+  params.set("limit", "500"); // get a wide sample
 
   const url = `https://gamma-api.polymarket.com/markets?${params.toString()}`;
 
@@ -33,35 +35,78 @@ module.exports = async (req, res) => {
 
     const now = Date.now();
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-    const MAX_AGE_DAYS = 90;
+    const MAX_AGE_DAYS = 365; // tolerate 1 year old markets
+    const maxAgeMs = MAX_AGE_DAYS * ONE_DAY_MS;
+
+    const currentYear = new Date().getFullYear();
 
     function normCategory(cat) {
       if (!cat) return "";
       return String(cat).trim().toLowerCase().replace(/\s+/g, "-");
     }
 
-    const bucket = new Map();
+    function pickEndDate(m) {
+      return (
+        m.endDateIso ||
+        m.endDateISO ||
+        m.endDate ||
+        m.endDateUtc ||
+        m.endDateUTC ||
+        m.closeDate ||
+        m.closesAt ||
+        m.expiresAt ||
+        m.end_time ||
+        null
+      );
+    }
+
+    function pickCreatedDate(m) {
+      return (
+        m.createdAt ||
+        m.created_at ||
+        m.creationTime ||
+        m.openedAt ||
+        null
+      );
+    }
+
+    function yearFromQuestion(m) {
+      const q = String(m.question || m.title || "");
+      const match = q.match(/20\d{2}/);
+      if (!match) return null;
+      return parseInt(match[0], 10);
+    }
+
+    const categoriesBucket = new Map();
 
     for (const m of markets) {
-      // reuse same recency filters as markets.js
+      // -------- LIVE-ish filtering (same as markets.js) --------
       if (typeof m.closed === "boolean" && m.closed) continue;
       if (typeof m.active === "boolean" && !m.active) continue;
 
-      const endStr = m.endDateIso || m.endDate;
+      // end-date filter
+      const endStr = pickEndDate(m);
       if (endStr) {
         const t = Date.parse(endStr);
         if (!Number.isNaN(t) && t < now - ONE_DAY_MS) continue;
       }
 
-      const createdStr = m.createdAt || m.created_at;
+      // created-date filter
+      const createdStr = pickCreatedDate(m);
       if (createdStr) {
         const t = Date.parse(createdStr);
-        if (!Number.isNaN(t)) {
-          const maxAgeMs = MAX_AGE_DAYS * ONE_DAY_MS;
-          if (t < now - maxAgeMs) continue;
-        }
+        if (!Number.isNaN(t) && t < now - maxAgeMs) continue;
       }
 
+      // year heuristic: hide obvious past-year markets
+      const year = yearFromQuestion(m);
+      if (year && year < currentYear) continue;
+
+      // require some 24h activity so we don't get ghost categories
+      const vol24 = Number(m.volume24hr ?? m.volume24Hrs ?? m.volume24h ?? 0);
+      if (!Number.isFinite(vol24) || vol24 <= 0) continue;
+
+      // -------- Category extraction --------
       const names = [];
       if (m.category) names.push(m.category);
       if (Array.isArray(m.categories)) names.push(...m.categories);
@@ -71,20 +116,20 @@ module.exports = async (req, res) => {
       for (const raw of names) {
         const slug = normCategory(raw);
         if (!slug) continue;
-        const label = String(raw).trim();
 
-        const existing = bucket.get(slug);
+        const label = String(raw).trim();
+        const existing = categoriesBucket.get(slug);
         if (existing) {
           existing.count += 1;
         } else {
-          bucket.set(slug, { slug, label, count: 1 });
+          categoriesBucket.set(slug, { slug, label, count: 1 });
         }
       }
     }
 
-    const categories = Array.from(bucket.values())
+    const categories = Array.from(categoriesBucket.values())
       .sort((a, b) => b.count - a.count)
-      .slice(0, 20);
+      .slice(0, 25);
 
     return res.status(200).json({ categories });
   } catch (err) {
