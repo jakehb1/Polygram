@@ -1,6 +1,5 @@
 // api/markets.js
-// Fetch live-ish Polymarket markets from Gamma and do minimal local filtering.
-//
+// Fetch open Polymarket markets from Gamma and support:
 // kind=new        -> newest open markets
 // kind=trending   -> open markets by 24h volume desc
 // kind=volume     -> open markets by total volume desc
@@ -24,12 +23,18 @@ module.exports = async (req, res) => {
     category: categorySlugRaw = "",
   } = req.query;
 
-  const categorySlug = String(categorySlugRaw || "").toLowerCase();
+  // normalize "wanted" category slug (from /api/categories or frontend)
+  const normalizeSlug = (s) =>
+    String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+  const wantedCategorySlug = normalizeSlug(categorySlugRaw || "");
 
   const params = new URLSearchParams();
   params.set("limit", String(limit));
-  // Use Gamma's `closed` param to only request open markets 
-  params.set("closed", "false");
+  params.set("closed", "false"); // only open markets
 
   if (kind === "trending") {
     params.set("order", "volume24hr");
@@ -56,46 +61,45 @@ module.exports = async (req, res) => {
     }
 
     const data = await resp.json();
-    let markets = Array.isArray(data) ? data : (data.markets || []);
+    let markets = Array.isArray(data) ? data : data.markets || [];
 
-    // --- Optional: category filter (by slug) ---
-    if (categorySlug) {
-      const norm = (s) =>
-        String(s || "")
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "-");
-
+    // optional category filter
+    if (wantedCategorySlug) {
       markets = markets.filter((m) => {
-        const slugs = [];
+        const candidates = [];
 
         // simple string category
-        if (m.category) slugs.push(norm(m.category));
+        if (m.category) candidates.push(m.category);
 
-        // categories array from Gamma: [{ label, slug, ... }, ...] 
+        // array of categories: could be strings or objects
         if (Array.isArray(m.categories)) {
           for (const cat of m.categories) {
             if (!cat) continue;
             if (typeof cat === "string") {
-              slugs.push(norm(cat));
+              candidates.push(cat);
             } else {
-              if (cat.slug) slugs.push(norm(cat.slug));
-              if (cat.label) slugs.push(norm(cat.label));
+              if (cat.slug) candidates.push(cat.slug);
+              if (cat.label) candidates.push(cat.label);
+              if (cat.name) candidates.push(cat.name);
             }
           }
         }
 
-        return slugs.includes(categorySlug);
+        if (!candidates.length) return false;
+
+        return candidates.some(
+          (c) => normalizeSlug(c) === wantedCategorySlug
+        );
       });
     }
 
-    // --- Very light "obviously ended" filter: drop markets that ended >1 day ago ---
+    // very light "end date" filter: drop things that clearly ended > 1 day ago
     const now = Date.now();
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
     markets = markets.filter((m) => {
       const endStr = m.endDateIso || m.endDate || null;
-      if (!endStr) return true; // no end date -> keep it
+      if (!endStr) return true;
       const t = Date.parse(endStr);
       if (Number.isNaN(t)) return true;
       return t >= now - ONE_DAY_MS;
