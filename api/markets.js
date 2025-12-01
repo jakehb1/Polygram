@@ -1,9 +1,9 @@
 // api/markets.js
-// Proxy to Polymarket Gamma /markets endpoint with simple sorting presets.
+// Live Polymarket markets, filtered to only *upcoming / live* ones.
 //
-// kind=new      -> newest active markets
-// kind=trending -> active markets by 24h volume desc
-// kind=volume   -> active markets by total volume desc
+// kind=new      -> newest upcoming markets
+// kind=trending -> upcoming markets by 24h volume desc
+// kind=volume   -> upcoming markets by total volume desc
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -22,11 +22,7 @@ module.exports = async (req, res) => {
   const params = new URLSearchParams();
   params.set("limit", String(limit));
 
-  // Only live markets
-  params.set("active", "true");   // only active markets
-  params.set("closed", "false");  // exclude resolved/closed
-
-  // Choose sort based on kind
+  // Ask Gamma for markets ordered different ways depending on "kind"
   if (kind === "trending") {
     // high 24h volume first
     params.set("order", "volume24hr");
@@ -54,8 +50,28 @@ module.exports = async (req, res) => {
     }
 
     const data = await resp.json();
-    // Gamma returns an array of markets – we just pass it straight through.
-    return res.status(200).json(data);
+    const markets = Array.isArray(data) ? data : (data.markets || []);
+
+    // ---- Local filtering for *truly live* markets ----
+    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    const filtered = markets.filter((m) => {
+      // Prefer Gamma's active/closed fields if they exist
+      if (typeof m.closed === "boolean" && m.closed) return false;
+      if (typeof m.active === "boolean" && !m.active) return false;
+
+      const endStr = m.endDateIso || m.endDate;
+      if (!endStr) return true; // if no end date, keep it
+
+      const t = Date.parse(endStr);
+      if (Number.isNaN(t)) return true;
+
+      // Keep markets that end in the future, or within the last 24h (grace window)
+      return t >= now - ONE_DAY_MS;
+    });
+
+    return res.status(200).json(filtered);
   } catch (err) {
     console.error("markets error", err);
     return res.status(500).json({ error: "failed_to_fetch" });
