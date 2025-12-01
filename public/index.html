@@ -1121,19 +1121,31 @@
 
       // Markets filters
       document.querySelectorAll("[data-markets-filter]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const kind = btn.getAttribute("data-markets-filter");
-          if (kind === "search" || kind === "category") {
-            tg?.showAlert?.("Search & category filters are coming soon.");
-            return;
-          }
-          const markets = await fetchMarkets(kind === "new" ? "new" : kind, 10);
-          renderMarketsList(markets);
-        });
-      });
+  const kind = btn.getAttribute("data-markets-filter");
 
-      // Load default "new" markets
-      fetchMarkets("new", 10).then(renderMarketsList);
+  if (kind === "category") {
+    btn.addEventListener("click", () => {
+      pickCategoryAndLoad();
+    });
+    return;
+  }
+
+  if (kind === "search") {
+    btn.addEventListener("click", () => {
+      tg?.showAlert?.("Search is coming soon.");
+    });
+    return;
+  }
+
+  btn.addEventListener("click", async () => {
+    const mappedKind = kind === "new" ? "new" : kind; // trending / volume / new
+    const markets = await fetchMarkets(mappedKind, 10);
+    renderMarketsList(markets);
+  });
+});
+
+// On initial load
+fetchMarkets("new", 10).then(renderMarketsList);
 
       // Portfolio buttons
       document.getElementById("positionsBtn").onclick = () =>
