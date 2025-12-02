@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Polygram · Trade Predictions</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-app: #f5f6f8;
+      --bg-card: #ffffff;
+      --bg-pill: #f0f2f6;
+      --accent: #7bcf8f;
+      --accent-soft: #e1f5e8;
+      --accent-dark: #1f8b54;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --text-subtle: #9ca3af;
+      --border-soft: rgba(15, 23, 42, 0.06);
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
+      --radius-xl: 26px;
+      --radius-lg: 20px;
+      --radius-pill: 999px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0; padding: 0; min-height: 100vh;
+      display: flex; justify-content: center;
+      background: radial-gradient(circle at top, #eef4ff 0, #f5f6f8 45%, #f5f6f8 100%);
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--text-main);
+    }
+
+    /* ===================== */
+    /* SPLASH SCREEN */
+    /* ===================== */
+    .splash-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 30% 20%, #eef4ff 0%, #f5f6f8 40%, #e8f4ea 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .splash-screen.fade-out {
+      opacity: 0;
+      transform: scale(1.05);
+      pointer-events: none;
+    }
+    .splash-screen.hidden { display: none; }
+    
+    .splash-logo {
+      width: 100px;
+      height: 100px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #e0f4ff 0, #ffffff 26%, #e2f8ee 52%, #111827 100%);
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: splash-pulse 2s ease-in-out infinite;
+    }
+    .splash-logo::before {
+      content: "";
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: #111827;
+      box-shadow: 0 0 0 8px #ffffff;
+    }
+    @keyframes splash-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .splash-title {
+      margin-top: 28px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text-main);
+    }
+    .splash-subtitle {
+      margin-top: 8px;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-subtle);
+    }
+    .splash-loader {
+      margin-top: 40px;
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #111827;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===================== */
+    /* ONBOARDING SCREEN */
+    /* ===================== */
+    .onboarding-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, #eef4ff 0, #f5f6f8 45%, #f5f6f8 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 90;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .onboarding-screen.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .onboarding-screen.hidden { display: none; }
+
+    .onboarding-card {
+      width: 100%;
+      max-width: 360px;
+      background: var(--bg-card);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-soft);
+      padding: 32px 24px;
+      border: 1px solid var(--border-soft);
+      text-align: center;
+    }
+    
+    .onboarding-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #e0f4ff 0, #ffffff 26%, #e2f8ee 52%, #111827 100%);
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .onboarding-logo::before {
+      content: "";
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #111827;
+      box-shadow: 0 0 0 6px #ffffff;
+    }
+    
+    .onboarding-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .onboarding-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    
+    .onboarding-features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .onboarding-feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--bg-pill);
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .onboarding-feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #111827;
+      color: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    
+    .passkey-section {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-soft);
+    }
+    .passkey-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-subtle);
+      margin-bottom: 10px;
+    }
+    .passkey-input-wrap {
+      display: flex;
+      gap: 8px;
+    }
+    .passkey-input {
+      flex: 1;
+      border: 2px solid var(--border-soft);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 500;
+      text-align: center;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: border-color 0.2s ease;
+    }
+    .passkey-input:focus {
+      outline: none;
+      border-color: #111827;
+    }
+    .passkey-input.error {
+      border-color: #ef4444;
+      animation: shake 0.4s ease;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    
+    .passkey-btn {
+      background: #111827;
+      color: #f9fafb;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.1s ease, opacity 0.2s ease;
+    }
+    .passkey-btn:hover { opacity: 0.9; }
+    .passkey-btn:active { transform: scale(0.98); }
+    .passkey-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .passkey-error {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #ef4444;
+      display: none;
+    }
+    .passkey-error.visible { display: block; }
+    
+    .passkey-hint {
+      margin-top: 16px;
+      font-size: 11px;
+      color: var(--text-subtle);
+    }
+    .passkey-hint a {
+      color: var(--text-main);
+      text-decoration: underline;
+    }
+
+    /* ===================== */
+    /* MAIN APP */
+    /* ===================== */
+    .app-shell { 
+      width: 100%; 
+      max-width: 420px; 
+      min-height: 100vh; 
+      display: flex; 
+      flex-direction: column; 
+      padding: 10px 10px 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .app-shell.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 14px; }
+    .top-left { display: flex; align-items: center; gap: 10px; }
+    .avatar-circle { width: 32px; height: 32px; border-radius: 999px; background: #111827; color: #f9fafb; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+    .logo-mark { width: 34px; height: 34px; border-radius: 999px; background: radial-gradient(circle at 30% 20%, #e0f4ff 0, #ffffff 26%, #e2f8ee 52%, #2b5ce0 100%); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18); display: flex; align-items: center; justify-content: center; position: relative; }
+    .logo-mark::before { content: ""; width: 14px; height: 14px; border-radius: 999px; background: #111827; box-shadow: 0 0 0 3px #ffffff; }
+    .app-title { display: flex; flex-direction: column; }
+    .app-title-main { font-size: 17px; font-weight: 700; letter-spacing: 0.03em; }
+    .app-title-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--text-subtle); }
+    .top-right { display: flex; align-items: center; gap: 10px; }
+    .icon-button { width: 32px; height: 32px; border-radius: 999px; border: none; background: var(--bg-card); box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 17px; }
+    .content-scroll { flex: 1; overflow-y: auto; padding-bottom: 78px; }
+
+    .card { background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-soft); padding: 18px 18px 16px; margin: 0 0 14px; border: 1px solid var(--border-soft); }
+    .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .card-title-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.17em; color: var(--text-subtle); }
+    .card-title-main { font-size: 16px; font-weight: 600; }
+
+    /* Setup Banner */
+    .setup-banner { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; }
+    .setup-banner.success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
+    .setup-banner h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+    .setup-banner p { margin: 0 0 10px; font-size: 12px; color: #92400e; }
+    .setup-banner.success p { color: #065f46; }
+    .setup-steps { display: flex; gap: 8px; }
+    .setup-step { flex: 1; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.7); font-size: 11px; text-align: center; }
+    .setup-step.done { background: #22c55e; color: white; }
+    .setup-step.active { background: #f59e0b; color: white; }
+    .setup-btn { background: #111827; color: white; border: none; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 10px; width: 100%; font-family: inherit; }
+    .setup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .networth-main { font-size: 28px; font-weight: 700; }
+    .networth-muted { font-size: 12px; color: var(--text-subtle); margin-top: 2px; }
+    .networth-add-btn { width: 32px; height: 32px; border-radius: 999px; border: none; background: #111827; color: #f9fafb; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; }
+
+    .wallet-pill { width: 100%; border-radius: var(--radius-pill); background: #050816; color: #e5e7eb; padding: 7px 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; cursor: pointer; border: none; font-family: inherit; }
+    .wallet-pill-label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+    .wallet-pill-badge { font-size: 11px; padding: 3px 7px; border-radius: 999px; background: rgba(148, 163, 184, 0.18); }
+    .wallet-icon { width: 18px; height: 18px; border-radius: 999px; background: radial-gradient(circle at 30% 20%, #e0fbff 0, #60a5fa 40%, #1f2937 100%); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+    .addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+
+    .button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .action-btn { border-radius: var(--radius-lg); border: none; background: var(--bg-pill); padding: 10px 12px; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--text-main); font-family: inherit; }
+    .action-btn.primary { background: #111827; color: #f9fafb; }
+    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .mode-chip { border-radius: var(--radius-lg); border: 1px solid var(--border-soft); background: var(--bg-pill); padding: 8px 10px; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--text-main); font-family: inherit; }
+    .mode-chip.active { background: #111827; color: #f9fafb; border-color: #111827; }
+    .markets-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
+    .markets-list { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; padding-right: 4px; }
+    .market-item { padding: 10px 10px 9px; border-radius: 16px; border: 1px solid var(--border-soft); background: #f9fafb; cursor: pointer; }
+    .market-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .market-meta { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+    .market-meta-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; font-size: 11px; }
+
+    .sheet { position: fixed; inset: auto 0 0; max-width: 420px; margin: 0 auto; border-top-left-radius: 24px; border-top-right-radius: 24px; background: #ffffff; box-shadow: 0 -18px 40px rgba(15, 23, 42, 0.5); padding: 14px 16px 16px; transform: translateY(100%); opacity: 0; pointer-events: none; transition: transform 0.18s ease-out, opacity 0.18s ease-out; z-index: 40; }
+    .sheet.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .sheet-title { font-size: 14px; font-weight: 600; }
+    .sheet-subtitle { font-size: 11px; color: var(--text-subtle); margin-bottom: 8px; }
+    .sheet-close { border: none; background: var(--bg-pill); border-radius: 999px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; }
+    .sheet-field-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .sheet-field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+    .sheet-field input { border-radius: 12px; border: 1px solid var(--border-soft); padding: 7px 9px; font-size: 13px; font-family: inherit; }
+    .buy-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+    .buy-btn { border-radius: var(--radius-lg); border: none; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; }
+    .buy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .buy-yes { background: #22c55e; color: #f9fafb; }
+    .buy-no { background: #ef4444; color: #f9fafb; }
+
+    .bottom-nav { position: fixed; inset: auto 0 0; max-width: 420px; margin: 0 auto; height: 64px; background: rgba(248, 250, 252, 0.98); border-top: 1px solid rgba(209, 213, 219, 0.7); display: flex; align-items: center; justify-content: space-around; z-index: 30; backdrop-filter: blur(16px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .bottom-nav.visible { opacity: 1; pointer-events: auto; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: var(--text-subtle); gap: 2px; cursor: pointer; }
+    .nav-item-icon { width: 26px; height: 26px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; background: transparent; color: var(--text-muted); }
+    .nav-item.active .nav-item-icon { background: #111827; color: #f9fafb; }
+    .nav-item.active { color: #111827; font-weight: 500; }
+
+    .loading-spinner { width: 20px; height: 20px; border: 2px solid #e5e7eb; border-top-color: #111827; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== -->
+  <!-- SPLASH SCREEN -->
+  <!-- ===================== -->
+  <div class="splash-screen" id="splashScreen">
+    <div class="splash-logo"></div>
+    <div class="splash-title">Polygram</div>
+    <div class="splash-subtitle">Trade Predictions</div>
+    <div class="splash-loader"></div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- ONBOARDING SCREEN -->
+  <!-- ===================== -->
+  <div class="onboarding-screen" id="onboardingScreen">
+    <div class="onboarding-card">
+      <div class="onboarding-logo"></div>
+      <div class="onboarding-title">Welcome to Polygram</div>
+      <div class="onboarding-subtitle">
+        Trade prediction markets directly from Telegram. Fast, simple, powerful.
+      </div>
+      
+      <div class="onboarding-features">
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">⚡</div>
+          <div>Instant trades on Polymarket via your custodial wallet</div>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">📊</div>
+          <div>Real-time markets, trending events, and live odds</div>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">🔐</div>
+          <div>Secure wallet with USDC on Polygon network</div>
+        </div>
+      </div>
+      
+      <div class="passkey-section">
+        <div class="passkey-label">Early Access Passkey</div>
+        <div class="passkey-input-wrap">
+          <input 
+            type="text" 
+            class="passkey-input" 
+            id="passkeyInput" 
+            placeholder="ENTER CODE"
+            maxlength="20"
+            autocomplete="off"
+            autocapitalize="characters"
+          />
+          <button class="passkey-btn" id="passkeyBtn" onclick="validatePasskey()">
+            →
+          </button>
+        </div>
+        <div class="passkey-error" id="passkeyError">
+          Invalid passkey. Please try again.
+        </div>
+        <div class="passkey-hint">
+          Don't have a passkey? <a href="https://t.me/polygram" target="_blank">Join our Telegram</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- MAIN APP -->
+  <!-- ===================== -->
+  <div class="app-shell" id="appShell">
+    <header class="top-bar">
+      <div class="top-left">
+        <div class="avatar-circle" id="userInitials">--</div>
+        <div class="logo-mark"></div>
+        <div class="app-title">
+          <div class="app-title-main">Polygram</div>
+          <div class="app-title-sub">Predict · Trade · Telegram</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <button class="icon-button" id="refreshButton" title="Refresh">⟳</button>
+      </div>
+    </header>
+
+    <main class="content-scroll" id="mainContent">
+      <!-- SETUP BANNER -->
+      <div class="setup-banner" id="setupBanner" style="display:none;">
+        <h3 id="setupTitle">🔧 Setup Required</h3>
+        <p id="setupDesc">Complete setup to start trading on Polymarket</p>
+        <div class="setup-steps">
+          <div class="setup-step" id="step1">1. Wallet</div>
+          <div class="setup-step" id="step2">2. Register</div>
+          <div class="setup-step" id="step3">3. Approve</div>
+        </div>
+        <button class="setup-btn" id="setupBtn" onclick="runNextSetupStep()">Continue Setup</button>
+      </div>
+
+      <!-- BALANCE CARD -->
+      <section class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title-label">Balance</div>
+            <div class="networth-main" id="netWorthDisplay">$0.00</div>
+            <div class="networth-muted" id="balanceDetails">USDC: $0.00 | Positions: $0.00</div>
+          </div>
+          <button class="networth-add-btn" id="quickDepositBtn" onclick="showDepositInfo()">+</button>
+        </div>
+      </section>
+
+      <!-- WALLET CARD -->
+      <section class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title-label">Your Wallet</div>
+            <div class="card-title-main">Polygon (Custodial)</div>
+          </div>
+        </div>
+        <button class="wallet-pill" id="polygonWalletBtn" onclick="copyAddress()">
+          <div class="wallet-pill-label">
+            <div class="wallet-icon">◆</div>
+            <span>Polygon</span>
+            <span class="wallet-pill-badge">USDC.e</span>
+          </div>
+          <span class="addr" id="polygonAddress">Loading...</span>
+        </button>
+        <div class="button-grid">
+          <button class="action-btn primary" id="depositBtn" onclick="showDepositInfo()">
+            <span>💰</span><span>Deposit</span>
+          </button>
+          <button class="action-btn" id="tradeBtn" onclick="document.querySelector('.mode-chip.active')?.click()">
+            <span>📈</span><span>Trade</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- MARKETS CARD -->
+      <section class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title-label">Markets</div>
+            <div class="card-title-main">Live Polymarket Questions</div>
+          </div>
+        </div>
+        <div class="markets-modes">
+          <button class="mode-chip active" data-kind="trending">🔥 Trending</button>
+          <button class="mode-chip" data-kind="volume">📈 Volume</button>
+          <button class="mode-chip" data-kind="new">🆕 New</button>
+          <button class="mode-chip" data-kind="sports">⚽ Sports</button>
+        </div>
+        <div id="marketsList" class="markets-list">
+          <div style="font-size:12px;color:var(--text-muted);">Loading markets...</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- BUY SHEET -->
+    <aside class="sheet" id="buySheet">
+      <div class="sheet-header">
+        <div>
+          <div class="sheet-title" id="buySheetTitle">Market</div>
+          <div class="sheet-subtitle" id="buySheetSubtitle">Choose side and amount</div>
+        </div>
+        <button class="sheet-close" onclick="closeBuySheet()">✕</button>
+      </div>
+      <div id="tradingDisabled" style="display:none; padding: 12px; background: #fef3c7; border-radius: 10px; margin-bottom: 10px; font-size: 12px; color: #92400e;">
+        ⚠️ Complete wallet setup before trading
+      </div>
+      <div class="sheet-field-row">
+        <div class="sheet-field">
+          <label>Size (shares)</label>
+          <input type="number" id="orderSize" min="1" step="1" value="10" />
+        </div>
+        <div class="sheet-field">
+          <label>Limit price (cents)</label>
+          <input type="number" id="orderPrice" min="1" max="99" step="1" value="50" />
+        </div>
+      </div>
+      <div class="buy-buttons">
+        <button class="buy-btn buy-yes" id="buyYesBtn" onclick="submitOrder('YES')">✅ Buy YES</button>
+        <button class="buy-btn buy-no" id="buyNoBtn" onclick="submitOrder('NO')">❌ Buy NO</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-subtle);margin-top:10px;">
+        Orders submitted to Polymarket CLOB. Trading involves risk.
+      </p>
+    </aside>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav" id="bottomNav">
+      <div class="nav-item active" data-view="home"><div class="nav-item-icon">🏠</div><div>Home</div></div>
+      <div class="nav-item" data-view="portfolio"><div class="nav-item-icon">📊</div><div>Portfolio</div></div>
+      <div class="nav-item" data-view="history"><div class="nav-item-icon">📋</div><div>History</div></div>
+    </nav>
+  </div>
+
+  <script>
+    // =====================
+    // VALID PASSKEYS
+    // =====================
+    const VALID_PASSKEYS = [
+      'EARLYBIRD',
+      'POLYGRAM2024',
+      'TRADEPRO',
+      'BETAACCESS',
+      'PUBLICLABS',
+    ];
+    
+    // =====================
+    // ONBOARDING FLOW
+    // =====================
+    const STORAGE_KEY = 'polygram_access';
+    
+    function checkAccess() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          if (data.validated && data.passkey) {
+            return true;
+          }
+        } catch (e) {}
+      }
+      return false;
+    }
+    
+    function grantAccess(passkey) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        validated: true,
+        passkey: passkey,
+        timestamp: Date.now()
+      }));
+    }
+    
+    function validatePasskey() {
+      const input = document.getElementById('passkeyInput');
+      const error = document.getElementById('passkeyError');
+      const btn = document.getElementById('passkeyBtn');
+      
+      const passkey = input.value.trim().toUpperCase();
+      
+      if (VALID_PASSKEYS.includes(passkey)) {
+        // Success
+        grantAccess(passkey);
+        error.classList.remove('visible');
+        btn.textContent = '✓';
+        btn.disabled = true;
+        
+        // Transition to app
+        setTimeout(() => {
+          document.getElementById('onboardingScreen').classList.remove('visible');
+          setTimeout(() => {
+            document.getElementById('onboardingScreen').classList.add('hidden');
+            showMainApp();
+          }, 300);
+        }, 500);
+      } else {
+        // Error
+        input.classList.add('error');
+        error.classList.add('visible');
+        
+        setTimeout(() => {
+          input.classList.remove('error');
+        }, 400);
+      }
+    }
+    
+    function showSplash() {
+      // Show splash for 2 seconds
+      setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        splash.classList.add('fade-out');
+        
+        setTimeout(() => {
+          splash.classList.add('hidden');
+          
+          // Check if user has access
+          if (checkAccess()) {
+            showMainApp();
+          } else {
+            showOnboarding();
+          }
+        }, 400);
+      }, 2000);
+    }
+    
+    function showOnboarding() {
+      document.getElementById('onboardingScreen').classList.add('visible');
+      
+      // Focus input
+      setTimeout(() => {
+        document.getElementById('passkeyInput').focus();
+      }, 300);
+      
+      // Enter key to submit
+      document.getElementById('passkeyInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          validatePasskey();
+        }
+      });
+    }
+    
+    function showMainApp() {
+      document.getElementById('appShell').classList.add('visible');
+      document.getElementById('bottomNav').classList.add('visible');
+      bootstrapApp();
+    }
+
+    // =====================
+    // STATE
+    // =====================
+    const state = {
+      telegramId: null,
+      telegramUser: null,
+      wallet: null,
+      balance: null,
+      markets: [],
+      selectedMarket: null,
+      setupComplete: false,
+    };
+
+    // =====================
+    // TELEGRAM INIT
+    // =====================
+    function initTelegram() {
+      if (window.Telegram?.WebApp) {
+        const tg = Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+          state.telegramId = user.id;
+          state.telegramUser = user;
+          
+          // Set user initials
+          const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
+          document.getElementById('userInitials').textContent = initials || user.id.toString().slice(0,2);
+        }
+      }
+      
+      // Fallback for testing outside Telegram
+      if (!state.telegramId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        state.telegramId = urlParams.get('telegram_id') || 'demo_' + Date.now();
+        console.log('Using demo telegram_id:', state.telegramId);
+      }
+    }
+
+    // =====================
+    // WALLET MANAGEMENT
+    // =====================
+    async function loadWallet() {
+      try {
+        const resp = await fetch(`/api/wallet?telegram_id=${state.telegramId}&action=get`);
+        const data = await resp.json();
+        
+        if (data.success && data.wallet) {
+          state.wallet = data.wallet;
+          document.getElementById('polygonAddress').textContent = shortAddr(data.wallet.address);
+          
+          // Load balance after wallet
+          loadBalance();
+          
+          // Update setup status
+          updateSetupStatus();
+        } else {
+          document.getElementById('polygonAddress').textContent = 'Not created';
+          updateSetupStatus();
+        }
+      } catch (err) {
+        console.error('Wallet load error:', err);
+        document.getElementById('polygonAddress').textContent = 'Error';
+      }
+    }
+
+    async function loadBalance() {
+      if (!state.wallet?.address) return;
+      
+      try {
+        const resp = await fetch(`/api/balances?telegram_id=${state.telegramId}`);
+        const data = await resp.json();
+        
+        if (data) {
+          state.balance = data;
+          const total = (data.usdcAvailable || 0) + (data.openPositionsValue || 0);
+          document.getElementById('netWorthDisplay').textContent = `$${total.toFixed(2)}`;
+          document.getElementById('balanceDetails').textContent = 
+            `USDC: $${(data.usdcAvailable || 0).toFixed(2)} | Positions: $${(data.openPositionsValue || 0).toFixed(2)}`;
+        }
+      } catch (err) {
+        console.error('Balance load error:', err);
+      }
+    }
+
+    // =====================
+    // SETUP FLOW
+    // =====================
+    function updateSetupStatus() {
+      const banner = document.getElementById('setupBanner');
+      const step1 = document.getElementById('step1');
+      const step2 = document.getElementById('step2');
+      const step3 = document.getElementById('step3');
+      
+      // Reset all steps
+      [step1, step2, step3].forEach(s => s.classList.remove('done', 'active'));
+      
+      const hasWallet = !!state.wallet?.address;
+      const clobRegistered = state.wallet?.clobRegistered || state.balance?.walletStatus?.clobRegistered;
+      const usdcApproved = state.wallet?.usdcApproved || state.balance?.walletStatus?.usdcApproved;
+      
+      // Update step states
+      if (hasWallet) step1.classList.add('done');
+      else step1.classList.add('active');
+      
+      if (clobRegistered) step2.classList.add('done');
+      else if (hasWallet) step2.classList.add('active');
+      
+      if (usdcApproved) step3.classList.add('done');
+      else if (clobRegistered) step3.classList.add('active');
+      
+      // Check if all complete
+      state.setupComplete = hasWallet && clobRegistered && usdcApproved;
+      
+      if (state.setupComplete) {
+        banner.classList.add('success');
+        document.getElementById('setupTitle').textContent = '✅ Ready to Trade';
+        document.getElementById('setupDesc').textContent = 'Your wallet is set up. Start trading!';
+        document.getElementById('setupBtn').style.display = 'none';
+        
+        // Hide banner after 3 seconds
+        setTimeout(() => { banner.style.display = 'none'; }, 3000);
+      } else {
+        banner.classList.remove('success');
+        document.getElementById('setupTitle').textContent = '🔧 Setup Required';
+        document.getElementById('setupDesc').textContent = 'Complete setup to start trading on Polymarket';
+        document.getElementById('setupBtn').style.display = 'block';
+        banner.style.display = 'block';
+      }
+    }
+
+    async function runNextSetupStep() {
+      const btn = document.getElementById('setupBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span>';
+      
+      try {
+        const hasWallet = !!state.wallet?.address;
+        const clobRegistered = state.wallet?.clobRegistered || state.balance?.walletStatus?.clobRegistered;
+        const usdcApproved = state.wallet?.usdcApproved || state.balance?.walletStatus?.usdcApproved;
+        
+        if (!hasWallet) {
+          // Step 1: Create wallet
+          const resp = await fetch(`/api/wallet?telegram_id=${state.telegramId}&action=create`);
+          const data = await resp.json();
+          if (data.success) {
+            state.wallet = data.wallet;
+            document.getElementById('polygonAddress').textContent = shortAddr(data.wallet.address);
+            showAlert('✅ Wallet created!\n\nDeposit USDC.e (Polygon) + MATIC for gas to continue.');
+          } else {
+            showAlert('Failed to create wallet: ' + (data.error || 'Unknown error'));
+          }
+        } else if (!clobRegistered) {
+          // Step 2: Register with CLOB
+          const resp = await fetch('/api/clob-register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: state.telegramId })
+          });
+          const data = await resp.json();
+          if (data.success) {
+            showAlert('✅ Registered with Polymarket CLOB!');
+            if (state.wallet) state.wallet.clobRegistered = true;
+          } else {
+            showAlert('Registration failed: ' + (data.error || 'Unknown error'));
+          }
+        } else if (!usdcApproved) {
+          // Step 3: Approve USDC
+          const resp = await fetch('/api/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: state.telegramId })
+          });
+          const data = await resp.json();
+          if (data.success) {
+            showAlert('✅ USDC approved for trading!');
+            if (state.wallet) state.wallet.usdcApproved = true;
+          } else {
+            const errorMsg = data.results?.find(r => r.error)?.error || data.error || 'Unknown error';
+            showAlert('Approval failed: ' + errorMsg + '\n\nMake sure you have MATIC for gas.');
+          }
+        }
+        
+        // Refresh balance to get updated status
+        await loadBalance();
+        updateSetupStatus();
+        
+      } catch (err) {
+        console.error('Setup step error:', err);
+        showAlert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Continue Setup';
+      }
+    }
+
+    // =====================
+    // MARKETS
+    // =====================
+    async function fetchMarkets(kind = 'trending') {
+      const list = document.getElementById('marketsList');
+      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Loading...</div>';
+      
+      try {
+        const resp = await fetch(`/api/markets?kind=${kind}&limit=20`);
+        const data = await resp.json();
+        
+        if (data.markets?.length) {
+          state.markets = data.markets;
+          renderMarkets(data.markets);
+        } else {
+          list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">No markets found</div>';
+        }
+      } catch (err) {
+        console.error('Markets fetch error:', err);
+        list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Failed to load markets</div>';
+      }
+    }
+
+    function renderMarkets(markets) {
+      const list = document.getElementById('marketsList');
+      list.innerHTML = markets.map((m, i) => {
+        const prices = JSON.parse(m.outcomePrices || '[]');
+        const yesPrice = Math.round((prices[0] || 0) * 100);
+        const noPrice = Math.round((prices[1] || 0) * 100);
+        const volume = Number(m.volume || 0);
+        const volStr = volume > 1e6 ? (volume/1e6).toFixed(1) + 'M' : volume > 1e3 ? (volume/1e3).toFixed(0) + 'K' : volume.toFixed(0);
+        
+        return `
+          <div class="market-item" onclick="openBuySheet(${i})">
+            <div class="market-title">${m.question || 'Untitled'}</div>
+            <div class="market-meta-row">
+              <span style="color:#22c55e;font-weight:600;">YES ${yesPrice}¢</span>
+              <span style="color:#ef4444;font-weight:600;">NO ${noPrice}¢</span>
+              <span style="color:var(--text-subtle);">Vol: $${volStr}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =====================
+    // BUY SHEET
+    // =====================
+    function openBuySheet(index) {
+      const market = state.markets[index];
+      if (!market) return;
+      
+      state.selectedMarket = market;
+      document.getElementById('buySheetTitle').textContent = market.question || 'Market';
+      
+      const prices = JSON.parse(market.outcomePrices || '[]');
+      const yesPrice = Math.round((prices[0] || 0.5) * 100);
+      document.getElementById('orderPrice').value = yesPrice;
+      
+      // Disable trading buttons if setup not complete
+      const disabled = !state.setupComplete;
+      document.getElementById('buyYesBtn').disabled = disabled;
+      document.getElementById('buyNoBtn').disabled = disabled;
+      document.getElementById('tradingDisabled').style.display = disabled ? 'block' : 'none';
+      
+      document.getElementById('buySheet').classList.add('open');
+    }
+
+    function closeBuySheet() {
+      document.getElementById('buySheet').classList.remove('open');
+      state.selectedMarket = null;
+    }
+
+    async function submitOrder(side) {
+      if (!state.selectedMarket || !state.setupComplete) {
+        showAlert('Complete setup before trading');
+        return;
+      }
+      
+      const size = Number(document.getElementById('orderSize').value);
+      const priceCents = Number(document.getElementById('orderPrice').value);
+      
+      if (!size || size <= 0) {
+        showAlert('Enter a valid size');
+        return;
+      }
+      if (!priceCents || priceCents <= 0 || priceCents >= 100) {
+        showAlert('Price must be 1-99 cents');
+        return;
+      }
+      
+      const tokenIds = JSON.parse(state.selectedMarket.clobTokenIds || '[]');
+      const tokenId = side === 'YES' ? tokenIds[0] : tokenIds[1];
+      
+      if (!tokenId) {
+        showAlert('This market is missing token IDs');
+        return;
+      }
+      
+      // Disable buttons while submitting
+      document.getElementById('buyYesBtn').disabled = true;
+      document.getElementById('buyNoBtn').disabled = true;
+      
+      try {
+        const resp = await fetch('/api/trade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: state.telegramId,
+            tokenId,
+            side: 'BUY',
+            price: priceCents / 100,
+            size,
+            negRisk: !!state.selectedMarket.negRisk,
+            marketSlug: state.selectedMarket.slug || null,
+          })
+        });
+        
+        const data = await resp.json();
+        
+        if (data.success) {
+          showAlert(`✅ ${side} order submitted!`);
+          closeBuySheet();
+          loadBalance();
+        } else {
+          if (data.needsRegistration) {
+            showAlert('Please complete CLOB registration first');
+            updateSetupStatus();
+          } else if (data.needsApproval) {
+            showAlert('Please approve USDC spending first');
+            updateSetupStatus();
+          } else {
+            showAlert('Order failed: ' + (data.error || 'Unknown error'));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        showAlert('Order error: ' + err.message);
+      } finally {
+        document.getElementById('buyYesBtn').disabled = !state.setupComplete;
+        document.getElementById('buyNoBtn').disabled = !state.setupComplete;
+      }
+    }
+
+    // =====================
+    // UTILITIES
+    // =====================
+    function shortAddr(addr) {
+      if (!addr) return 'Not set';
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    function showAlert(msg) {
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.showAlert(msg);
+      } else {
+        alert(msg);
+      }
+    }
+
+    function copyAddress() {
+      if (state.wallet?.address) {
+        navigator.clipboard?.writeText(state.wallet.address);
+        showAlert('Address copied: ' + state.wallet.address);
+      }
+    }
+
+    function showDepositInfo() {
+      if (state.wallet?.address) {
+        showAlert(
+          'Deposit USDC.e (Polygon) to:\n\n' + 
+          state.wallet.address + 
+          '\n\nAlso send ~0.1 MATIC for gas fees.'
+        );
+      } else {
+        showAlert('Create a wallet first');
+      }
+    }
+
+    // =====================
+    // APP INIT
+    // =====================
+    function initModeButtons() {
+      document.querySelectorAll('.mode-chip[data-kind]').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.mode-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          fetchMarkets(chip.dataset.kind);
+        });
+      });
+    }
+
+    async function bootstrapApp() {
+      initTelegram();
+      initModeButtons();
+      
+      document.getElementById('refreshButton').addEventListener('click', async () => {
+        await loadWallet();
+        fetchMarkets('trending');
+      });
+      
+      await loadWallet();
+      fetchMarkets('trending');
+    }
+
+    // =====================
+    // START
+    // =====================
+    document.addEventListener('DOMContentLoaded', showSplash);
+  </script>
+</body>
+</html>

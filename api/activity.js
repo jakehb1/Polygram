@@ -1,0 +1,36 @@
+const DATA_URL =
+  process.env.POLYMARKET_DATA_URL || "https://data-api.polymarket.com";
+
+module.exports = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  const { user } = req.query;
+  if (!user) {
+    return res.status(400).json({ error: "Missing ?user=0x... parameter" });
+  }
+
+  try {
+    const url = new URL("/activity", DATA_URL);
+    url.searchParams.set("user", user);
+    url.searchParams.set("limit", "100");
+
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("Activity error", resp.status, text);
+      return res.status(500).json({ error: "Failed to fetch activity" });
+    }
+
+    const data = await resp.json();
+    return res.status(200).json({ activity: data });
+  } catch (err) {
+    console.error("Activity exception", err);
+    return res.status(500).json({ error: "Unexpected error" });
+  }
+};
