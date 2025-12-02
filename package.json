@@ -1,0 +1,21 @@
+{
+  "name": "polysight-miniapp",
+  "version": "1.1.0",
+  "description": "Telegram Polymarket mini app with custodial wallets",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@polymarket/clob-client": "^4.22.8",
+    "@supabase/supabase-js": "^2.45.0",
+    "@ethersproject/wallet": "^5.7.0",
+    "@ethersproject/providers": "^5.7.2",
+    "@ethersproject/contracts": "^5.7.0",
+    "@ethersproject/constants": "^5.7.0",
+    "ethers": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
