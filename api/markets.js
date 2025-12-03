@@ -10,13 +10,13 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
 
-  const { kind = "trending", limit = "20" } = req.query;
-  const limitNum = Math.min(Math.max(Number(limit) || 20, 1), 100);
-  // Parse minVolume - check req.query directly to allow 0 as a valid value
-  // This prevents the || operator from treating 0 as falsy when minVolume is explicitly set to "0"
+  const { kind = "trending", limit = "1000" } = req.query;
+  // Allow much higher limits to get all markets (default 1000, max 10000)
+  const limitNum = Math.min(Math.max(Number(limit) || 1000, 1), 10000);
+  // Parse minVolume - default to 0 to get ALL markets (no volume filter by default)
   const minVolumeProvided = req.query.minVolume !== undefined && req.query.minVolume !== null;
-  const minVolumeParsed = minVolumeProvided ? Number(req.query.minVolume) : 1000000;
-  const minVolumeNum = Math.max(isNaN(minVolumeParsed) ? 1000000 : minVolumeParsed, 0); // Minimum volume threshold in USD (default: $1M)
+  const minVolumeParsed = minVolumeProvided ? Number(req.query.minVolume) : 0;
+  const minVolumeNum = Math.max(isNaN(minVolumeParsed) ? 0 : minVolumeParsed, 0);
 
   const GAMMA_API = "https://gamma-api.polymarket.com";
   
@@ -59,10 +59,11 @@ module.exports = async (req, res) => {
         console.log("[markets] Error fetching tags for category:", e.message);
       }
       
-      // Fetch markets for this category
+      // Fetch markets for this category with higher limit
       if (categoryTagId) {
         try {
-          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=100`;
+          // Fetch with high limit to get all markets in this category
+          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=1000`;
           const resp = await fetch(url);
           if (resp.ok) {
             const data = await resp.json();
@@ -75,20 +76,32 @@ module.exports = async (req, res) => {
         }
       }
       
-      // Fallback: also try general markets if category-specific fetch didn't work
-      if (markets.length === 0) {
-        try {
-          const url = `${GAMMA_API}/markets?closed=false&active=true&limit=100`;
-          const resp = await fetch(url);
-          if (resp.ok) {
-            const data = await resp.json();
-            if (Array.isArray(data)) {
-              markets = data.filter(m => !m.closed && m.active !== false);
+      // Also fetch general markets to ensure we get all markets in this category
+      try {
+        const url = `${GAMMA_API}/markets?closed=false&active=true&limit=1000`;
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data)) {
+            // Filter by category if we have a tag ID
+            if (categoryTagId) {
+              // Check if market has this tag
+              const categoryMarkets = data.filter(m => {
+                if (m.closed || m.active === false) return false;
+                // Check if market has matching tag_id in its tags array or tagId field
+                const marketTags = m.tags || m.tagIds || [];
+                return Array.isArray(marketTags) && marketTags.includes(categoryTagId) ||
+                       m.tagId === categoryTagId || m.tag_id === categoryTagId;
+              });
+              markets.push(...categoryMarkets);
+            } else {
+              // No specific category, add all active markets
+              markets.push(...data.filter(m => !m.closed && m.active !== false));
             }
           }
-        } catch (e) {
-          console.log("[markets] Error fetching general markets:", e.message);
         }
+      } catch (e) {
+        console.log("[markets] Error fetching general markets:", e.message);
       }
       
     } else if (isSportsSubcategory) {
@@ -110,7 +123,7 @@ module.exports = async (req, res) => {
       
       // Strategy 1: Fetch events directly (this gives us game structure)
       try {
-        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=200`;
+        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
@@ -179,7 +192,7 @@ module.exports = async (req, res) => {
               
               // Fetch events with this tag
               try {
-                const eventsUrl = `${GAMMA_API}/events?tag_id=${categoryTagId}&closed=false&active=true&limit=100`;
+                const eventsUrl = `${GAMMA_API}/events?tag_id=${categoryTagId}&closed=false&active=true&limit=1000`;
                 const eventsResp = await fetch(eventsUrl);
                 if (eventsResp.ok) {
                   const events = await eventsResp.json();
@@ -223,7 +236,7 @@ module.exports = async (req, res) => {
       // Strategy 3: Fallback - fetch markets directly by tag
       if (markets.length < 10 && categoryTagId) {
         try {
-          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=100`;
+          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=1000`;
           const resp = await fetch(url);
           if (resp.ok) {
             const data = await resp.json();
@@ -369,57 +382,58 @@ module.exports = async (req, res) => {
       // For trending/volume/new: fetch markets from ALL categories
       console.log("[markets] Fetching markets from all categories for:", kind);
       
-      // Step 1: Get all available tags/categories
-      let allTagIds = [];
+      // For trending/volume/new: fetch ALL active markets from the main endpoint
+      // This ensures we get a comprehensive 1:1 match with Polymarket
       try {
-        const tagsResp = await fetch(`${GAMMA_API}/tags`);
-        if (tagsResp.ok) {
-          const tags = await tagsResp.json();
-          if (Array.isArray(tags)) {
-            // Get all tag IDs (limit to top 20 most popular categories to avoid too many requests)
-            allTagIds = tags
-              .filter(tag => tag.id)
-              .map(tag => tag.id)
-              .slice(0, 20);
-            console.log("[markets] Found", allTagIds.length, "categories to fetch from");
-          }
-        }
-      } catch (e) {
-        console.log("[markets] Error fetching tags:", e.message);
-      }
-      
-      // Step 2: Fetch markets from each category
-      const fetchPromises = allTagIds.map(async (tagId) => {
-        try {
-          const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=30`;
-          const resp = await fetch(url);
-          if (resp.ok) {
-            const data = await resp.json();
-            return Array.isArray(data) ? data.filter(m => !m.closed) : [];
-          }
-          return [];
-        } catch (e) {
-          console.log("[markets] Error fetching markets for tag", tagId, e.message);
-          return [];
-        }
-      });
-      
-      // Wait for all category fetches to complete
-      const categoryResults = await Promise.all(fetchPromises);
-      markets = categoryResults.flat();
-      
-      // Also fetch general markets endpoint as a fallback to ensure we get all markets
-      try {
-        const url = `${GAMMA_API}/markets?closed=false&active=true&limit=100`;
+        // Fetch all active markets with high limit
+        const url = `${GAMMA_API}/markets?closed=false&active=true&limit=10000`;
         const resp = await fetch(url);
         if (resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data)) {
-            markets.push(...data.filter(m => !m.closed));
+            markets = data.filter(m => !m.closed && m.active !== false);
+            console.log("[markets] Fetched", markets.length, "markets from main endpoint");
           }
         }
       } catch (e) {
-        console.log("[markets] Error fetching general markets:", e.message);
+        console.log("[markets] Error fetching all markets:", e.message);
+      }
+      
+      // Also fetch from events endpoint to get event-based markets (sports games, etc.)
+      try {
+        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
+        const eventsResp = await fetch(eventsUrl);
+        if (eventsResp.ok) {
+          const events = await eventsResp.json();
+          if (Array.isArray(events)) {
+            for (const event of events) {
+              if (event.markets && Array.isArray(event.markets)) {
+                for (const market of event.markets) {
+                  if (!market.closed && market.active !== false) {
+                    const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
+                    if (!existing) {
+                      markets.push({
+                        ...market,
+                        eventId: event.id,
+                        eventTitle: event.title,
+                        eventSlug: event.slug,
+                        eventTicker: event.ticker,
+                        eventStartDate: event.startDate,
+                        eventEndDate: event.endDate,
+                        eventImage: event.image || event.icon,
+                        eventVolume: event.volume,
+                        eventLiquidity: event.liquidity,
+                      });
+                    }
+                  }
+                }
+              }
+            }
+            console.log("[markets] Added markets from events, total:", markets.length);
+          }
+        }
+      } catch (e) {
+        console.log("[markets] Error fetching events:", e.message);
       }
     }
     
@@ -454,15 +468,18 @@ module.exports = async (req, res) => {
 
     console.log("[markets] After price filter:", markets.length);
 
-    // Filter: must meet minimum volume threshold
-    markets = markets.filter(m => {
-      const volume24hr = parseFloat(m.volume24hr) || 0;
-      const volume = parseFloat(m.volume) || 0;
-      const totalVolume = Math.max(volume24hr, volume);
-      return totalVolume >= minVolumeNum;
-    });
-
-    console.log("[markets] After volume filter (min: $" + minVolumeNum + "):", markets.length);
+    // Filter: must meet minimum volume threshold (only if minVolumeNum > 0)
+    if (minVolumeNum > 0) {
+      markets = markets.filter(m => {
+        const volume24hr = parseFloat(m.volume24hr) || 0;
+        const volume = parseFloat(m.volume) || 0;
+        const totalVolume = Math.max(volume24hr, volume);
+        return totalVolume >= minVolumeNum;
+      });
+      console.log("[markets] After volume filter (min: $" + minVolumeNum + "):", markets.length);
+    } else {
+      console.log("[markets] No volume filter applied, keeping all", markets.length, "markets");
+    }
 
     // Sort by volume (highest first)
     markets.sort((a, b) => {

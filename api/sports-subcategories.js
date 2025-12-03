@@ -32,68 +32,90 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Sports subcategory keywords
-    const sportsKeywords = [
-      'nfl', 'nba', 'mlb', 'nhl', 'wnba', 'ufc', 'soccer', 'football', 'basketball', 
-      'baseball', 'hockey', 'tennis', 'cricket', 'golf', 'boxing', 'formula', 'f1',
-      'epl', 'la liga', 'bundesliga', 'serie a', 'ligue 1', 'mls', 'cbb', 'cfb',
-      'college football', 'college basketball', 'ncaa', 'ncaaf', 'ncaab'
+    // Hardcoded list of known sports subcategories on Polymarket
+    // These are the main sports leagues/categories that have active markets
+    const knownSports = [
+      { slug: 'nfl', label: 'NFL', searchTerms: ['nfl', 'american football'] },
+      { slug: 'nba', label: 'NBA', searchTerms: ['nba', 'basketball'] },
+      { slug: 'mlb', label: 'MLB', searchTerms: ['mlb', 'baseball'] },
+      { slug: 'nhl', label: 'NHL', searchTerms: ['nhl', 'hockey'] },
+      { slug: 'wnba', label: 'WNBA', searchTerms: ['wnba'] },
+      { slug: 'ufc', label: 'UFC', searchTerms: ['ufc', 'mma'] },
+      { slug: 'epl', label: 'EPL', searchTerms: ['epl', 'premier league', 'english premier league'] },
+      { slug: 'cfb', label: 'College Football', searchTerms: ['cfb', 'college football', 'ncaaf', 'ncaa football'] },
+      { slug: 'cbb', label: 'College Basketball', searchTerms: ['cbb', 'college basketball', 'ncaab', 'ncaa basketball'] },
+      { slug: 'mls', label: 'MLS', searchTerms: ['mls', 'major league soccer'] },
+      { slug: 'la-liga', label: 'La Liga', searchTerms: ['la liga', 'laliga'] },
+      { slug: 'bundesliga', label: 'Bundesliga', searchTerms: ['bundesliga'] },
+      { slug: 'serie-a', label: 'Serie A', searchTerms: ['serie a', 'seriea'] },
+      { slug: 'ligue-1', label: 'Ligue 1', searchTerms: ['ligue 1', 'ligue1'] },
+      { slug: 'tennis', label: 'Tennis', searchTerms: ['tennis'] },
+      { slug: 'golf', label: 'Golf', searchTerms: ['golf'] },
+      { slug: 'boxing', label: 'Boxing', searchTerms: ['boxing'] },
+      { slug: 'formula-1', label: 'Formula 1', searchTerms: ['formula 1', 'formula1', 'f1'] },
+      { slug: 'cricket', label: 'Cricket', searchTerms: ['cricket'] },
     ];
-
-    // Map of known sports subcategories with icons
-    const sportsMap = {
-      'nfl': { label: 'NFL', icon: '' },
-      'nba': { label: 'NBA', icon: '' },
-      'mlb': { label: 'MLB', icon: '' },
-      'nhl': { label: 'NHL', icon: '' },
-      'wnba': { label: 'WNBA', icon: '' },
-      'ufc': { label: 'UFC', icon: '' },
-      'soccer': { label: 'Soccer', icon: '' },
-      'football': { label: 'Football', icon: '' },
-      'basketball': { label: 'Basketball', icon: '' },
-      'baseball': { label: 'Baseball', icon: '' },
-      'hockey': { label: 'Hockey', icon: '' },
-      'tennis': { label: 'Tennis', icon: '' },
-      'cricket': { label: 'Cricket', icon: '' },
-      'golf': { label: 'Golf', icon: '' },
-      'boxing': { label: 'Boxing', icon: '' },
-      'formula': { label: 'Formula 1', icon: '' },
-      'f1': { label: 'Formula 1', icon: '' },
-      'epl': { label: 'EPL', icon: '' },
-      'cbb': { label: 'College Basketball', icon: '' },
-      'cfb': { label: 'College Football', icon: '' },
-    };
 
     const subcategories = [];
     const seenSlugs = new Set();
 
-    // Find sports-related tags
+    // First, try to find tags from the API that match our known sports
     for (const tag of tags) {
       if (!tag.id) continue;
       
-      const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
-      const label = tag.label || tag.name || slug;
+      const tagSlug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+      const tagLabel = tag.label || tag.name || tagSlug;
       
-      // Check if this tag matches any sports keyword
-      const matchedKeyword = sportsKeywords.find(keyword => 
-        slug.includes(keyword) || keyword.includes(slug)
-      );
-      
-      if (matchedKeyword && !seenSlugs.has(slug)) {
-        const sportsInfo = sportsMap[matchedKeyword] || sportsMap[slug] || {
-          label: label.charAt(0).toUpperCase() + label.slice(1),
-          icon: ''
-        };
+      // Check if this tag matches any known sport
+      for (const sport of knownSports) {
+        const matches = sport.searchTerms.some(term => 
+          tagSlug === term || 
+          tagSlug.includes(term) || 
+          term.includes(tagSlug) ||
+          tagLabel.toLowerCase().includes(term) ||
+          term.includes(tagLabel.toLowerCase())
+        );
+        
+        if (matches && !seenSlugs.has(sport.slug)) {
+          subcategories.push({
+            id: tag.id,
+            label: sport.label,
+            icon: '',
+            slug: sport.slug,
+            tagId: tag.id,
+          });
+          seenSlugs.add(sport.slug);
+          break; // Found a match, move to next tag
+        }
+      }
+    }
+
+    // For sports not found in tags, add them anyway (they might still have markets)
+    // We'll use the sport slug as the identifier
+    for (const sport of knownSports) {
+      if (!seenSlugs.has(sport.slug)) {
+        // Try to find a tag ID by searching tags again with more flexible matching
+        let tagId = null;
+        for (const tag of tags) {
+          if (!tag.id) continue;
+          const tagSlug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+          const matches = sport.searchTerms.some(term => 
+            tagSlug === term || tagSlug.includes(term) || term.includes(tagSlug)
+          );
+          if (matches) {
+            tagId = tag.id;
+            break;
+          }
+        }
         
         subcategories.push({
-          id: tag.id,
-          label: sportsInfo.label,
-          icon: sportsInfo.icon,
-          slug: slug,
-          tagId: tag.id,
+          id: sport.slug,
+          label: sport.label,
+          icon: '',
+          slug: sport.slug,
+          tagId: tagId,
         });
-        
-        seenSlugs.add(slug);
+        seenSlugs.add(sport.slug);
       }
     }
 

@@ -1366,7 +1366,7 @@
 
       try {
         console.log('[fetchMarkets] Fetching:', kind);
-        const apiUrl = `/api/markets?kind=${kind}&limit=15`;
+        const apiUrl = `/api/markets?kind=${kind}&limit=10000&minVolume=0`;
         console.log('[fetchMarkets] URL:', apiUrl);
         
         const resp = await fetch(apiUrl);
@@ -1463,7 +1463,8 @@
       // Render all outcomes with percentages
       const outcomesContainer = document.getElementById('tradeOutcomes');
       outcomesContainer.innerHTML = outcomes.map((outcome, index) => {
-        const price = prices[index] ? parseFloat(prices[index]) : 0;
+        // Use 0.5 as fallback to match updateTradeSummary logic
+        const price = prices[index] ? parseFloat(prices[index]) : 0.5;
         const percent = (price * 100).toFixed(0);
         const priceCents = (price * 100).toFixed(0);
         const isActive = index === 0; // Default to first outcome
