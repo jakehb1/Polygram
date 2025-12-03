@@ -235,10 +235,8 @@ module.exports = async (req, res) => {
         console.log("[markets] Error fetching tags:", e.message);
       }
       
-      // Strategy 3: Fallback - fetch markets directly by tag
-      // ONLY do this if we're NOT filtering for games only (props or all markets)
-      // For "games", we only want markets from events (actual live games), not props/futures
-      if (!isGamesOnly && markets.length < 10 && categoryTagId) {
+      // Strategy 3: Fetch markets directly by tag, then match to events for games
+      if (categoryTagId) {
         try {
           const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=1000`;
           const resp = await fetch(url);
@@ -246,21 +244,70 @@ module.exports = async (req, res) => {
             const data = await resp.json();
             if (Array.isArray(data)) {
               const newMarkets = data.filter(m => !m.closed && m.active !== false);
-              // Avoid duplicates
-              for (const market of newMarkets) {
-                const existing = markets.find(m => m.id === market.id);
-                if (!existing) {
-                  markets.push(market);
+              
+              if (isGamesOnly) {
+                // For games: fetch all events and match markets to events
+                // Markets that belong to events are game markets
+                try {
+                  const allEventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
+                  const allEventsResp = await fetch(allEventsUrl);
+                  if (allEventsResp.ok) {
+                    const allEvents = await allEventsResp.json();
+                    if (Array.isArray(allEvents)) {
+                      // Create a map of market IDs to events
+                      const marketIdToEvent = new Map();
+                      for (const event of allEvents) {
+                        if (event.markets && Array.isArray(event.markets)) {
+                          for (const eventMarket of event.markets) {
+                            const marketId = eventMarket.id || eventMarket.conditionId;
+                            if (marketId) {
+                              marketIdToEvent.set(marketId, event);
+                            }
+                          }
+                        }
+                      }
+                      
+                      // Only add markets that belong to events
+                      for (const market of newMarkets) {
+                        const marketId = market.id || market.conditionId;
+                        const existing = markets.find(m => (m.id || m.conditionId) === marketId);
+                        if (!existing && marketIdToEvent.has(marketId)) {
+                          const event = marketIdToEvent.get(marketId);
+                          markets.push({
+                            ...market,
+                            eventId: event.id,
+                            eventTitle: event.title,
+                            eventSlug: event.slug,
+                            eventTicker: event.ticker,
+                            eventStartDate: event.startDate,
+                            eventEndDate: event.endDate,
+                            eventImage: event.image || event.icon,
+                            eventVolume: event.volume,
+                            eventLiquidity: event.liquidity,
+                          });
+                        }
+                      }
+                      console.log("[markets] Added", markets.length, "game markets matched to events");
+                    }
+                  }
+                } catch (e) {
+                  console.log("[markets] Error matching markets to events:", e.message);
                 }
+              } else {
+                // For props or all markets, include everything
+                for (const market of newMarkets) {
+                  const existing = markets.find(m => m.id === market.id);
+                  if (!existing) {
+                    markets.push(market);
+                  }
+                }
+                console.log("[markets] Added", newMarkets.length, "markets from direct fetch");
               }
-              console.log("[markets] Added", newMarkets.length, "markets from direct fetch");
             }
           }
         } catch (e) {
           console.log("[markets] Error fetching markets directly:", e.message);
         }
-      } else if (isGamesOnly && markets.length === 0) {
-        console.log("[markets] No game events found for", kind, "- this is expected if no live games are available");
       }
       
     } else if (kind === "sports") {
