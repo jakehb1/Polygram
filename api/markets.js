@@ -1,6 +1,6 @@
 // api/markets.js
 // Fetches live markets from Polymarket Gamma API
-// Uses /sports endpoint for sports tag IDs
+// Fetches markets from all categories using /tags endpoint
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -18,150 +18,166 @@ module.exports = async (req, res) => {
   try {
     let markets = [];
     
+    // Map kind to category slug (if it's a category, otherwise it's a sort mode)
+    const categoryMap = {
+      "sports": ["sports", "nfl", "nba", "mlb", "nhl", "ufc", "soccer", "tennis"],
+      "politics": ["politics", "election", "president"],
+      "crypto": ["crypto", "bitcoin", "ethereum", "defi"],
+      "entertainment": ["entertainment", "movies", "tv", "music"],
+      "economics": ["economics", "inflation", "gdp", "fed"],
+    };
+    
     if (kind === "sports") {
-      console.log("[markets] Fetching sports via /sports endpoint...");
+      console.log("[markets] Fetching sports markets from all categories...");
       
-      // Step 1: Get sports metadata from /sports endpoint
-      let sportsTagIds = [];
+      // Get all tags to find sports-related tags
+      let allTagIds = [];
       try {
-        const sportsResp = await fetch(`${GAMMA_API}/sports`);
-        if (sportsResp.ok) {
-          const sportsData = await sportsResp.json();
-          console.log("[markets] Sports data:", JSON.stringify(sportsData).substring(0, 500));
-          
-          // Extract tag IDs from sports data
-          if (Array.isArray(sportsData)) {
-            for (const sport of sportsData) {
-              if (sport.tagId) sportsTagIds.push(sport.tagId);
-              if (sport.tag_id) sportsTagIds.push(sport.tag_id);
-              if (sport.id) sportsTagIds.push(sport.id);
+        const tagsResp = await fetch(`${GAMMA_API}/tags`);
+        if (tagsResp.ok) {
+          const tags = await tagsResp.json();
+          if (Array.isArray(tags)) {
+            // Filter for sports-related tags
+            const sportsKeywords = ["sport", "nfl", "nba", "mlb", "nhl", "ufc", "soccer", "football", "basketball", "baseball", "hockey", "tennis"];
+            for (const tag of tags) {
+              const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+              if (sportsKeywords.some(keyword => slug.includes(keyword))) {
+                if (tag.id) allTagIds.push(tag.id);
+              }
             }
-          } else if (sportsData && typeof sportsData === 'object') {
-            // Maybe it's an object with sports as keys
-            for (const key of Object.keys(sportsData)) {
-              const sport = sportsData[key];
-              if (sport && sport.tagId) sportsTagIds.push(sport.tagId);
-              if (sport && sport.tag_id) sportsTagIds.push(sport.tag_id);
-            }
+            console.log("[markets] Found sports tag IDs:", allTagIds.length);
           }
-          console.log("[markets] Sports tag IDs:", sportsTagIds);
-        } else {
-          console.log("[markets] /sports endpoint returned:", sportsResp.status);
         }
       } catch (e) {
-        console.log("[markets] Error fetching /sports:", e.message);
+        console.log("[markets] Error fetching tags:", e.message);
       }
       
-      // Step 2: Fetch events for each sports tag
-      for (const tagId of sportsTagIds.slice(0, 10)) {
+      // Fetch markets for each sports tag
+      for (const tagId of allTagIds.slice(0, 15)) {
         try {
-          const url = `${GAMMA_API}/events?tag_id=${tagId}&closed=false&active=true&limit=50`;
-          console.log("[markets] Fetching events for tag:", tagId);
+          const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=50`;
           const resp = await fetch(url);
           if (resp.ok) {
-            const events = await resp.json();
-            if (Array.isArray(events)) {
-              for (const event of events) {
-                if (event.markets && Array.isArray(event.markets)) {
-                  for (const market of event.markets) {
-                    if (!market.closed) {
-                      markets.push({
-                        ...market,
-                        eventTitle: event.title,
-                        sportTagId: tagId,
-                      });
-                    }
+            const data = await resp.json();
+            if (Array.isArray(data)) {
+              markets.push(...data.filter(m => !m.closed));
+            }
+          }
+        } catch (e) {
+          console.log("[markets] Error fetching markets for tag", tagId, e.message);
+        }
+      }
+      
+      // Also try /sports endpoint as fallback
+      if (markets.length < 10) {
+        try {
+          const sportsResp = await fetch(`${GAMMA_API}/sports`);
+          if (sportsResp.ok) {
+            const sportsData = await sportsResp.json();
+            let sportsTagIds = [];
+            
+            if (Array.isArray(sportsData)) {
+              for (const sport of sportsData) {
+                if (sport.tagId) sportsTagIds.push(sport.tagId);
+                if (sport.tag_id) sportsTagIds.push(sport.tag_id);
+                if (sport.id) sportsTagIds.push(sport.id);
+              }
+            } else if (sportsData && typeof sportsData === 'object') {
+              for (const key of Object.keys(sportsData)) {
+                const sport = sportsData[key];
+                if (sport && sport.tagId) sportsTagIds.push(sport.tagId);
+                if (sport && sport.tag_id) sportsTagIds.push(sport.tag_id);
+              }
+            }
+            
+            for (const tagId of sportsTagIds.slice(0, 10)) {
+              try {
+                const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=50`;
+                const resp = await fetch(url);
+                if (resp.ok) {
+                  const data = await resp.json();
+                  if (Array.isArray(data)) {
+                    markets.push(...data.filter(m => !m.closed));
                   }
                 }
+              } catch (e) {
+                console.log("[markets] Error fetching markets for sports tag", tagId);
               }
             }
           }
         } catch (e) {
-          console.log("[markets] Error fetching tag", tagId, e.message);
+          console.log("[markets] Error fetching /sports:", e.message);
         }
       }
-      
-      // Step 3: Also try fetching markets directly with tag IDs
-      if (markets.length < 5) {
-        for (const tagId of sportsTagIds.slice(0, 5)) {
-          try {
-            const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=50`;
-            const resp = await fetch(url);
-            if (resp.ok) {
-              const data = await resp.json();
-              if (Array.isArray(data)) {
-                markets.push(...data.filter(m => !m.closed));
-              }
-            }
-          } catch (e) {
-            console.log("[markets] Error fetching markets for tag", tagId);
-          }
-        }
-      }
-      
-      // Step 4: Fallback - search by slug pattern
-      if (markets.length === 0) {
-        console.log("[markets] Trying slug-based search...");
-        const sportsSlugPatterns = ['nfl', 'nba', 'mlb', 'nhl', 'ufc', 'soccer', 'tennis'];
-        
-        for (const pattern of sportsSlugPatterns) {
-          try {
-            // Try fetching events with slug containing sports keyword
-            const url = `${GAMMA_API}/events?closed=false&active=true&limit=100`;
-            const resp = await fetch(url);
-            if (resp.ok) {
-              const events = await resp.json();
-              if (Array.isArray(events)) {
-                for (const event of events) {
-                  const slug = (event.slug || '').toLowerCase();
-                  const title = (event.title || '').toLowerCase();
-                  
-                  if (slug.includes(pattern) || title.includes(pattern)) {
-                    if (event.markets && Array.isArray(event.markets)) {
-                      for (const market of event.markets) {
-                        if (!market.closed) {
-                          markets.push({
-                            ...market,
-                            eventTitle: event.title,
-                          });
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            console.log("[markets] Slug search error:", e.message);
-          }
-          
-          if (markets.length > 0) break;
-        }
-      }
-      
-      // Remove duplicates
-      const seen = new Set();
-      markets = markets.filter(m => {
-        if (seen.has(m.id)) return false;
-        seen.add(m.id);
-        return true;
-      });
-      
-      console.log("[markets] Total sports markets found:", markets.length);
       
     } else {
-      // Regular fetch for trending/volume/new
-      const url = `${GAMMA_API}/markets?closed=false&active=true&limit=100`;
-      console.log("[markets] Fetching:", url);
+      // For trending/volume/new: fetch markets from ALL categories
+      console.log("[markets] Fetching markets from all categories for:", kind);
       
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const data = await resp.json();
-        markets = Array.isArray(data) ? data : [];
+      // Step 1: Get all available tags/categories
+      let allTagIds = [];
+      try {
+        const tagsResp = await fetch(`${GAMMA_API}/tags`);
+        if (tagsResp.ok) {
+          const tags = await tagsResp.json();
+          if (Array.isArray(tags)) {
+            // Get all tag IDs (limit to top 20 most popular categories to avoid too many requests)
+            allTagIds = tags
+              .filter(tag => tag.id)
+              .map(tag => tag.id)
+              .slice(0, 20);
+            console.log("[markets] Found", allTagIds.length, "categories to fetch from");
+          }
+        }
+      } catch (e) {
+        console.log("[markets] Error fetching tags:", e.message);
+      }
+      
+      // Step 2: Fetch markets from each category
+      const fetchPromises = allTagIds.map(async (tagId) => {
+        try {
+          const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=30`;
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const data = await resp.json();
+            return Array.isArray(data) ? data.filter(m => !m.closed) : [];
+          }
+          return [];
+        } catch (e) {
+          console.log("[markets] Error fetching markets for tag", tagId, e.message);
+          return [];
+        }
+      });
+      
+      // Wait for all category fetches to complete
+      const categoryResults = await Promise.all(fetchPromises);
+      markets = categoryResults.flat();
+      
+      // Also fetch general markets endpoint as a fallback to ensure we get all markets
+      try {
+        const url = `${GAMMA_API}/markets?closed=false&active=true&limit=100`;
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data)) {
+            markets.push(...data.filter(m => !m.closed));
+          }
+        }
+      } catch (e) {
+        console.log("[markets] Error fetching general markets:", e.message);
       }
     }
     
-    console.log("[markets] Raw markets:", markets.length);
+    // Remove duplicates by market ID
+    const seen = new Set();
+    markets = markets.filter(m => {
+      const id = m.id || m.conditionId;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    
+    console.log("[markets] Total unique markets found:", markets.length);
 
     // Filter: must have valid prices
     markets = markets.filter(m => {
