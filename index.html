@@ -947,6 +947,7 @@
       markets: [],
       selectedMarket: null,
       selectedCategory: null,
+      selectedSportType: null, // 'games' or 'props'
       tradeSide: 'yes',
       selectedOutcomeIndex: 0,
     };
@@ -1262,6 +1263,38 @@
     }
 
     async function showSportsSubcategories() {
+      // Show Games and Props as top-level sports subcategories
+      const list = document.getElementById('marketsList');
+      list.innerHTML = `
+        <div style="margin-bottom: 16px; font-size: 14px; color: var(--text-muted);">
+          Select a category:
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+          <button class="category-chip" 
+                  data-sport-type="games" 
+                  style="width: 100%; justify-content: flex-start; padding: 12px 16px;">
+            🎮 Games
+          </button>
+          <button class="category-chip" 
+                  data-sport-type="props" 
+                  style="width: 100%; justify-content: flex-start; padding: 12px 16px;">
+            🎯 Props
+          </button>
+        </div>
+      `;
+      
+      // Add click handlers for Games and Props
+      list.querySelectorAll('.category-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sportType = btn.dataset.sportType;
+          state.selectedSportType = sportType;
+          showSportsByType(sportType);
+        });
+      });
+    }
+
+    async function showSportsByType(type) {
+      // type is either "games" or "props"
       try {
         const resp = await fetch('/api/sports-subcategories');
         if (resp.ok) {
@@ -1269,7 +1302,7 @@
           const subcategories = data.subcategories || [];
           
           if (subcategories.length > 0) {
-            // Render subcategories in the markets list area
+            // Render sports subcategories in the markets list area
             const list = document.getElementById('marketsList');
             list.innerHTML = `
               <div style="margin-bottom: 16px; font-size: 14px; color: var(--text-muted);">
@@ -1279,6 +1312,7 @@
                 ${subcategories.map(sub => `
                   <button class="category-chip" 
                           data-sport="${sub.slug}" 
+                          data-sport-type="${type}"
                           style="width: 100%; justify-content: flex-start; padding: 12px 16px;">
                     ${sub.icon} ${sub.label}
                   </button>
@@ -1286,11 +1320,14 @@
               </div>
             `;
             
-            // Add click handlers for subcategories
+            // Add click handlers for sports subcategories
             list.querySelectorAll('.category-chip').forEach(btn => {
               btn.addEventListener('click', () => {
                 const sportSlug = btn.dataset.sport;
+                const sportType = btn.dataset.sportType;
                 state.selectedCategory = sportSlug;
+                state.selectedSportType = sportType;
+                // Fetch markets for this sport (type is stored in state for potential filtering)
                 fetchMarkets(sportSlug);
               });
             });
@@ -1303,7 +1340,7 @@
           fetchMarkets('sports');
         }
       } catch (err) {
-        console.error('[showSportsSubcategories] Error:', err);
+        console.error('[showSportsByType] Error:', err);
         // Fallback: fetch sports markets directly
         fetchMarkets('sports');
       }
