@@ -52,20 +52,55 @@ module.exports = async (req, res) => {
         console.log("[markets] Error fetching tags:", e.message);
       }
       
-      // Fetch markets for each sports tag
+      // Fetch markets for each sports tag (prioritize live/active markets)
       for (const tagId of allTagIds.slice(0, 15)) {
         try {
+          // Try fetching live markets first
           const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=50`;
           const resp = await fetch(url);
           if (resp.ok) {
             const data = await resp.json();
             if (Array.isArray(data)) {
-              markets.push(...data.filter(m => !m.closed));
+              // Filter for active, non-closed markets
+              const activeMarkets = data.filter(m => !m.closed && m.active !== false);
+              markets.push(...activeMarkets);
             }
           }
         } catch (e) {
           console.log("[markets] Error fetching markets for tag", tagId, e.message);
         }
+      }
+      
+      // Also try fetching from events endpoint for live sports events
+      try {
+        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=100`;
+        const eventsResp = await fetch(eventsUrl);
+        if (eventsResp.ok) {
+          const events = await eventsResp.json();
+          if (Array.isArray(events)) {
+            // Filter for sports-related events and extract their markets
+            const sportsKeywords = ["nfl", "nba", "mlb", "nhl", "ufc", "soccer", "football", "basketball", "baseball", "hockey", "tennis", "cricket", "golf", "boxing", "formula"];
+            for (const event of events) {
+              const eventSlug = (event.slug || "").toLowerCase();
+              const eventTitle = (event.title || "").toLowerCase();
+              
+              if (sportsKeywords.some(keyword => eventSlug.includes(keyword) || eventTitle.includes(keyword))) {
+                if (event.markets && Array.isArray(event.markets)) {
+                  for (const market of event.markets) {
+                    if (!market.closed && market.active !== false) {
+                      markets.push({
+                        ...market,
+                        eventTitle: event.title,
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log("[markets] Error fetching sports events:", e.message);
       }
       
       // Also try /sports endpoint as fallback
@@ -87,6 +122,7 @@ module.exports = async (req, res) => {
                 const sport = sportsData[key];
                 if (sport && sport.tagId) sportsTagIds.push(sport.tagId);
                 if (sport && sport.tag_id) sportsTagIds.push(sport.tag_id);
+                if (sport && sport.id) sportsTagIds.push(sport.id);
               }
             }
             
@@ -97,7 +133,9 @@ module.exports = async (req, res) => {
                 if (resp.ok) {
                   const data = await resp.json();
                   if (Array.isArray(data)) {
-                    markets.push(...data.filter(m => !m.closed));
+                    // Filter for active, non-closed markets
+                    const activeMarkets = data.filter(m => !m.closed && m.active !== false);
+                    markets.push(...activeMarkets);
                   }
                 }
               } catch (e) {
