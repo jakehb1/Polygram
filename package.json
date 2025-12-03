@@ -1,8 +1,0 @@
-{
-  "name": "polygram",
-  "version": "1.0.0",
-  "description": "Telegram Mini App for Polymarket trading",
-  "dependencies": {
-    "@ethersproject/wallet": "^5.7.0"
-  }
-}
