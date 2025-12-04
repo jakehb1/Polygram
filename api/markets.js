@@ -135,14 +135,26 @@ module.exports = async (req, res) => {
       
       // Strategy 1: Fetch events directly (this gives us game structure)
       try {
-        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
+        // Increase limit to get more events
+        const eventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=2000`;
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
             if (Array.isArray(events)) {
             console.log("[markets] Fetched", events.length, "total events");
             
-            // Filter events by sport keyword - check tags, slug, title, and ticker
+            // NFL team names for broader matching
+            const nflTeams = ['cowboys', 'lions', 'chiefs', 'bills', 'ravens', '49ers', 'rams', 'packers', 
+                             'dolphins', 'browns', 'texans', 'bengals', 'jaguars', 'colts', 'steelers', 
+                             'jets', 'broncos', 'raiders', 'chargers', 'patriots', 'titans', 'falcons', 
+                             'saints', 'buccaneers', 'panthers', 'cardinals', 'seahawks', 'commanders', 
+                             'giants', 'eagles', 'bears', 'vikings', 'dallas', 'detroit', 'kansas city',
+                             'cincinnati', 'buffalo', 'pittsburgh', 'baltimore', 'seattle', 'atlanta',
+                             'tennessee', 'cleveland', 'miami', 'new york', 'new orleans', 'tampa',
+                             'indianapolis', 'jacksonville', 'washington', 'minnesota', 'denver', 'las vegas',
+                             'chicago', 'green bay', 'los angeles', 'arizona', 'houston'];
+            
+            // Filter events by sport keyword - check tags, slug, title, ticker, AND team names
               for (const event of events) {
               const eventSlug = (event.slug || "").toLowerCase();
               const eventTitle = (event.title || "").toLowerCase();
@@ -162,8 +174,23 @@ module.exports = async (req, res) => {
                 eventTicker.includes(term)
               );
               
-              // Match if either tags or text match
-              const matches = tagMatches || textMatches;
+              // For NFL, also check if event mentions NFL teams (broader matching)
+              const hasNflTeams = nflTeams.some(team => 
+                eventSlug.includes(team) || 
+                eventTitle.includes(team) ||
+                eventTicker.includes(team)
+              );
+              
+              // Check for week indicators (common in NFL game events)
+              const hasWeek = eventTitle.includes("week") || eventSlug.includes("week") || 
+                            eventTags.some(tag => (tag.slug || tag.label || "").toLowerCase().includes("week"));
+              
+              // Check for game structure (vs, game indicators)
+              const hasGameStructure = eventTitle.includes(" vs ") || eventTitle.includes(" v ") || 
+                                      eventSlug.includes(" vs ") || eventSlug.includes(" v ");
+              
+              // Match if: tags/text match OR (has NFL teams AND (has week OR has game structure))
+              const matches = tagMatches || textMatches || (hasNflTeams && (hasWeek || hasGameStructure));
               
               // For games only, skip obvious prop/future events
               if (isGamesOnly && matches) {
