@@ -139,11 +139,11 @@ module.exports = async (req, res) => {
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
-          if (Array.isArray(events)) {
+            if (Array.isArray(events)) {
             console.log("[markets] Fetched", events.length, "total events");
             
             // Filter events by sport keyword - check tags, slug, title, and ticker
-            for (const event of events) {
+              for (const event of events) {
               const eventSlug = (event.slug || "").toLowerCase();
               const eventTitle = (event.title || "").toLowerCase();
               const eventTicker = (event.ticker || "").toLowerCase();
@@ -211,7 +211,7 @@ module.exports = async (req, res) => {
                 }
                 
                 // Extract all markets from this event (game)
-                for (const market of event.markets) {
+                  for (const market of event.markets) {
                   if (!market.closed && market.active !== false) {
                     // For games only, filter out prop markets - be very strict
                     if (isGamesOnly) {
@@ -319,115 +319,190 @@ module.exports = async (req, res) => {
         }
       }
       
-      // Strategy 3: Fetch markets directly by tag IDs, then match to events for games
-      // Only for NFL games for now
-      if (kind.toLowerCase() === "nfl" && (categoryTagIds.length > 0 || categoryTagId)) {
-        // Use all tag IDs from /sports endpoint, or fallback to single tag ID
-        const tagIdsToUse = categoryTagIds.length > 0 ? categoryTagIds : (categoryTagId ? [categoryTagId] : []);
-        
-        // Fetch markets for each tag ID
-        const marketFetchPromises = tagIdsToUse.map(async (tagId) => {
-          try {
-            const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=1000`;
-            const resp = await fetch(url);
-            if (resp.ok) {
-              const data = await resp.json();
-              if (Array.isArray(data)) {
-                return data.filter(m => !m.closed && m.active !== false);
-              }
-            }
-            return [];
-          } catch (e) {
-            console.log("[markets] Error fetching markets for tag", tagId, e.message);
-            return [];
-          }
-        });
-        
+      // Strategy 3: For NFL games, use multiple approaches to find game markets
+      // Since tag-based queries return props, we need to search more broadly
+      if (kind.toLowerCase() === "nfl" && isGamesOnly) {
+        // Approach 1: Search all events for NFL game events
         try {
-          const marketArrays = await Promise.all(marketFetchPromises);
-          const newMarkets = marketArrays.flat();
-          console.log("[markets] Fetched", newMarkets.length, "markets from tag IDs:", tagIdsToUse);
-          
-          if (newMarkets.length > 0) {
-            if (isGamesOnly) {
-              // For games: fetch all events and match markets to events
-              // Markets that belong to events are game markets
-              try {
-                const allEventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
-                const allEventsResp = await fetch(allEventsUrl);
-                if (allEventsResp.ok) {
-                  const allEvents = await allEventsResp.json();
-                  if (Array.isArray(allEvents)) {
-                    // Create a map of market IDs to events
-                    const marketIdToEvent = new Map();
-                    for (const event of allEvents) {
-                      if (event.markets && Array.isArray(event.markets)) {
-                        for (const eventMarket of event.markets) {
-                          const marketId = eventMarket.id || eventMarket.conditionId;
-                          if (marketId) {
-                            marketIdToEvent.set(marketId, event);
+          const allEventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=2000`;
+          const allEventsResp = await fetch(allEventsUrl);
+          if (allEventsResp.ok) {
+            const allEvents = await allEventsResp.json();
+            if (Array.isArray(allEvents)) {
+              // NFL team names for matching
+              const nflTeams = ['cowboys', 'lions', 'chiefs', 'bills', 'ravens', '49ers', 'rams', 'packers', 
+                               'dolphins', 'browns', 'texans', 'bengals', 'jaguars', 'colts', 'steelers', 
+                               'jets', 'broncos', 'raiders', 'chargers', 'patriots', 'titans', 'falcons', 
+                               'saints', 'buccaneers', 'panthers', 'cardinals', 'seahawks', 'commanders', 
+                               'giants', 'eagles', 'bears', 'vikings', 'dallas', 'detroit', 'kansas city',
+                               'cincinnati', 'buffalo', 'pittsburgh', 'baltimore', 'seattle', 'atlanta',
+                               'tennessee', 'cleveland', 'miami', 'new york', 'new orleans', 'tampa',
+                               'indianapolis', 'jacksonville', 'washington', 'minnesota', 'denver', 'las vegas',
+                               'chicago', 'green bay', 'los angeles', 'arizona', 'houston'];
+              
+              // Find events that look like NFL games
+              for (const event of allEvents) {
+                if (!event.markets || !Array.isArray(event.markets)) continue;
+                
+                const eventTitle = (event.title || "").toLowerCase();
+                const eventSlug = (event.slug || "").toLowerCase();
+                const eventTags = (event.tags || []).map(t => (t.slug || t.label || "").toLowerCase());
+                
+                // Check if event is NFL-related
+                const hasNflTag = eventTags.some(t => 'nfl' in t);
+                const hasNflTeam = nflTeams.some(team => team in eventTitle || team in eventSlug);
+                const hasWeek = 'week' in eventTitle || 'week' in eventSlug || eventTags.some(t => 'week' in t);
+                const hasVs = eventTitle.includes(" vs ") || eventSlug.includes(" vs ") || eventTitle.includes(" v ");
+                
+                // Check if markets look like games
+                const hasGameMarkets = event.markets.some(m => {
+                  const q = (m.question || "").toLowerCase();
+                  return q.includes(" vs ") || q.includes("moneyline") || q.includes("spread") || (q.includes("total") && !q.includes("player"));
+                });
+                
+                // Include if it looks like an NFL game event
+                if ((hasNflTag || hasNflTeam) && (hasWeek || hasVs || hasGameMarkets)) {
+                  // Exclude if it's clearly a prop event
+                  const isPropEvent = eventTitle.includes("mvp") || eventTitle.includes("leader") || 
+                                     (eventTitle.includes("champion") && !eventTitle.includes("week")) ||
+                                     (eventTitle.includes("super bowl") && !eventTitle.includes("week"));
+                  
+                  if (!isPropEvent) {
+                    for (const market of event.markets) {
+                      if (!market.closed && market.active !== false) {
+                        const question = (market.question || "").toLowerCase();
+                        // Exclude props
+                        const isProp = 
+                          (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award") || (question.includes("super bowl") && !question.includes("week")) || (question.includes("champion") && !question.includes("week")))) ||
+                          question.includes("leader") ||
+                          question.includes("mvp") ||
+                          (question.includes("super bowl") && !question.includes("week") && !question.includes("vs")) ||
+                          (question.includes("champion") && !question.includes("week") && !question.includes("vs"));
+                        
+                        if (!isProp) {
+                          const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
+                          if (!existing) {
+                            markets.push({
+                              ...market,
+                              eventId: event.id,
+                              eventTitle: event.title,
+                              eventSlug: event.slug,
+                              eventTicker: event.ticker,
+                              eventStartDate: event.startDate,
+                              eventEndDate: event.endDate,
+                              eventImage: event.image || event.icon,
+                              eventVolume: event.volume,
+                              eventLiquidity: event.liquidity,
+                              eventTags: event.tags || [],
+                            });
                           }
                         }
                       }
                     }
-                    
-                    // Only add markets that belong to events
-                    let addedCount = 0;
-                    for (const market of newMarkets) {
-                      const marketId = market.id || market.conditionId;
-                      const existing = markets.find(m => (m.id || m.conditionId) === marketId);
-                      if (!existing && marketIdToEvent.has(marketId)) {
-                        const event = marketIdToEvent.get(marketId);
-                        const question = (market.question || "").toLowerCase();
-                        
-                        // Exclude only clearly prop markets (be less strict)
-                        const slug = (market.slug || "").toLowerCase();
-                        const isDefinitelyProp = 
-                          (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award"))) ||
-                          question.includes("leader") ||
-                          question.includes("mvp") ||
-                          question.includes("award") ||
-                          (question.includes("champion") && !question.includes("week") && !question.includes("vs")) ||
-                          (question.includes("winner") && !question.includes("week") && !question.includes("vs") && !question.includes("moneyline")) ||
-                          (slug.includes("prop") && (slug.includes("leader") || slug.includes("mvp")));
-                        
-                        if (!isDefinitelyProp) {
-                          markets.push({
-                            ...market,
-                            eventId: event.id,
-                            eventTitle: event.title,
-                            eventSlug: event.slug,
-                            eventTicker: event.ticker,
-                            eventStartDate: event.startDate,
-                            eventEndDate: event.endDate,
-                            eventImage: event.image || event.icon,
-                            eventVolume: event.volume,
-                            eventLiquidity: event.liquidity,
-                            eventTags: event.tags || [],
-                          });
-                          addedCount++;
-                        }
-                      }
-                    }
-                    console.log("[markets] Added", addedCount, "game markets matched to events (total:", markets.length, ")");
                   }
                 }
-              } catch (e) {
-                console.log("[markets] Error matching markets to events:", e.message);
               }
-            } else {
-              // For props or all markets, include everything
-              for (const market of newMarkets) {
-                const existing = markets.find(m => m.id === market.id);
+              console.log("[markets] Added NFL game markets from events search");
+            }
+          }
+        } catch (e) {
+          console.log("[markets] Error searching events for NFL games:", e.message);
+        }
+        
+        // Approach 2: Search all markets for game structure
+        try {
+          const url = `${GAMMA_API}/markets?closed=false&active=true&limit=10000`;
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const data = await resp.json();
+            if (Array.isArray(data)) {
+              const allMarkets = data.filter(m => !m.closed && m.active !== false);
+              
+              // NFL team names
+              const nflTeams = ['cowboys', 'lions', 'chiefs', 'bills', 'ravens', '49ers', 'rams', 'packers', 
+                               'dolphins', 'browns', 'texans', 'bengals', 'jaguars', 'colts', 'steelers', 
+                               'jets', 'broncos', 'raiders', 'chargers', 'patriots', 'titans', 'falcons', 
+                               'saints', 'buccaneers', 'panthers', 'cardinals', 'seahawks', 'commanders', 
+                               'giants', 'eagles', 'bears', 'vikings', 'dallas', 'detroit', 'kansas city',
+                               'cincinnati', 'buffalo', 'pittsburgh', 'baltimore', 'seattle', 'atlanta',
+                               'tennessee', 'cleveland', 'miami', 'new york', 'new orleans', 'tampa',
+                               'indianapolis', 'jacksonville', 'washington', 'minnesota', 'denver', 'las vegas',
+                               'chicago', 'green bay', 'los angeles', 'arizona', 'houston'];
+              
+              const gameMarkets = allMarkets.filter(m => {
+                const question = (m.question || "").toLowerCase();
+                const slug = (m.slug || "").toLowerCase();
+                
+                // Must have game structure
+                const hasGameStructure = 
+                  question.includes(" vs ") ||
+                  question.includes(" v ") ||
+                  question.includes("moneyline") ||
+                  question.includes("ml") ||
+                  question.includes("spread") ||
+                  (question.includes("total") && !question.includes("player") && !question.includes("leader"));
+                
+                // Must mention NFL teams
+                const teamCount = nflTeams.filter(team => question.includes(team) || slug.includes(team)).length;
+                const hasNflTeams = teamCount > 0;
+                
+                // Exclude props
+                const isProp = 
+                  (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award") || (question.includes("super bowl") && !question.includes("week") && !question.includes("vs")) || (question.includes("champion") && !question.includes("week") && !question.includes("vs")))) ||
+                  question.includes("leader") ||
+                  question.includes("mvp") ||
+                  (question.includes("super bowl") && !question.includes("week") && !question.includes("vs")) ||
+                  (question.includes("champion") && !question.includes("week") && !question.includes("vs"));
+                
+                return hasGameStructure && hasNflTeams && !isProp;
+              });
+              
+              // Add game markets that aren't already included
+              for (const market of gameMarkets) {
+                const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
                 if (!existing) {
                   markets.push(market);
                 }
               }
-              console.log("[markets] Added", newMarkets.length, "markets from direct fetch");
+              console.log("[markets] Added", gameMarkets.length, "NFL game markets from direct market search");
             }
           }
         } catch (e) {
-          console.log("[markets] Error processing markets from tag IDs:", e.message);
+          console.log("[markets] Error searching markets for NFL games:", e.message);
+        }
+      } else if (kind.toLowerCase() === "nfl" && !isGamesOnly) {
+        // For props: fetch by tag IDs
+        if (categoryTagIds.length > 0 || categoryTagId) {
+          const tagIdsToUse = categoryTagIds.length > 0 ? categoryTagIds : (categoryTagId ? [categoryTagId] : []);
+          const marketFetchPromises = tagIdsToUse.map(async (tagId) => {
+            try {
+              const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=1000`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const data = await resp.json();
+              if (Array.isArray(data)) {
+                  return data.filter(m => !m.closed && m.active !== false);
+                }
+              }
+              return [];
+            } catch (e) {
+              return [];
+            }
+          });
+          
+          try {
+            const marketArrays = await Promise.all(marketFetchPromises);
+            const newMarkets = marketArrays.flat();
+            for (const market of newMarkets) {
+              const existing = markets.find(m => m.id === market.id);
+              if (!existing) {
+                markets.push(market);
+              }
+            }
+            console.log("[markets] Added", newMarkets.length, "NFL markets (props mode)");
+          } catch (e) {
+            console.log("[markets] Error fetching NFL props:", e.message);
+          }
         }
       }
       
@@ -461,8 +536,8 @@ module.exports = async (req, res) => {
         try {
           // Try fetching live markets first
           const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=50`;
-          const resp = await fetch(url);
-          if (resp.ok) {
+            const resp = await fetch(url);
+            if (resp.ok) {
             const data = await resp.json();
             if (Array.isArray(data)) {
               // Filter for active, non-closed markets
@@ -481,29 +556,29 @@ module.exports = async (req, res) => {
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
-          if (Array.isArray(events)) {
+              if (Array.isArray(events)) {
             // Filter for sports-related events and extract their markets
             const sportsKeywords = ["nfl", "nba", "mlb", "nhl", "ufc", "soccer", "football", "basketball", "baseball", "hockey", "tennis", "cricket", "golf", "boxing", "formula"];
-            for (const event of events) {
+                for (const event of events) {
               const eventSlug = (event.slug || "").toLowerCase();
               const eventTitle = (event.title || "").toLowerCase();
-              
+                  
               if (sportsKeywords.some(keyword => eventSlug.includes(keyword) || eventTitle.includes(keyword))) {
-                if (event.markets && Array.isArray(event.markets)) {
-                  for (const market of event.markets) {
+                    if (event.markets && Array.isArray(event.markets)) {
+                      for (const market of event.markets) {
                     if (!market.closed && market.active !== false) {
-                      markets.push({
-                        ...market,
-                        eventTitle: event.title,
-                      });
+                          markets.push({
+                            ...market,
+                            eventTitle: event.title,
+                          });
+                        }
+                      }
                     }
                   }
                 }
               }
             }
-          }
-        }
-      } catch (e) {
+          } catch (e) {
         console.log("[markets] Error fetching sports events:", e.message);
       }
       
@@ -561,9 +636,9 @@ module.exports = async (req, res) => {
       try {
         // Fetch all active markets with high limit
         const url = `${GAMMA_API}/markets?closed=false&active=true&limit=10000`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const data = await resp.json();
           if (Array.isArray(data)) {
             markets = data.filter(m => !m.closed && m.active !== false);
             console.log("[markets] Fetched", markets.length, "markets from main endpoint");
