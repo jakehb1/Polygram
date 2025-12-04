@@ -25,10 +25,13 @@
       --text-muted: #4a7080;
       --accent: #1e3a5f;
       --accent-light: #a8f0c8;
+      --accent-pink: #ec4899;
       --green: #7cf0a8;
       --green-soft: #a8f0c8;
       --red: #ef4444;
       --border: #b8dce8;
+      --bg-secondary: #e0f4f8;
+      --card-hover: #b8e0e8;
       --radius: 24px;
       --radius-sm: 16px;
       --shadow: none;
@@ -483,6 +486,9 @@
       flex-shrink: 0;
       min-height: 40px;
     }
+    .category-chip:hover {
+      opacity: 0.9;
+    }
     .category-chip:active {
       transform: scale(0.95);
     }
@@ -559,6 +565,7 @@
       color: var(--text);
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -656,6 +663,122 @@
     }
     .market-item.nested .market-question {
       font-size: 13px;
+    }
+
+    /* Market Card (New Design) */
+    .market-card {
+      background: var(--card);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .market-card:active {
+      transform: scale(0.99);
+    }
+    .market-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .market-card-header .market-image {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--bg);
+    }
+    .market-title {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .market-outcomes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .market-outcome-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .outcome-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .outcome-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .outcome-button-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 120px;
+    }
+    .outcome-price {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 45px;
+    }
+    .outcome-btn {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 60px;
+    }
+    .outcome-btn:active {
+      transform: scale(0.95);
+    }
+    .outcome-yes {
+      background: var(--accent-pink);
+      color: white;
+      border-color: var(--accent-pink);
+    }
+    .outcome-yes:active {
+      opacity: 0.9;
+    }
+    .outcome-no {
+      background: var(--bg);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .outcome-no:active {
+      background: var(--card);
+    }
+    .market-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .market-volume {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .market-icon {
+      font-size: 16px;
+      opacity: 0.6;
     }
 
     /* Modal */
@@ -1034,6 +1157,46 @@
     };
 
     // =====================
+    // HAPTIC FEEDBACK
+    // =====================
+    function hapticFeedback(type = 'light') {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        const haptic = window.Telegram.WebApp.HapticFeedback;
+        switch(type) {
+          case 'light':
+            haptic.impactOccurred('light');
+            break;
+          case 'medium':
+            haptic.impactOccurred('medium');
+            break;
+          case 'heavy':
+            haptic.impactOccurred('heavy');
+            break;
+          case 'success':
+            haptic.notificationOccurred('success');
+            break;
+          case 'error':
+            haptic.notificationOccurred('error');
+            break;
+          case 'warning':
+            haptic.notificationOccurred('warning');
+            break;
+        }
+      } else if (navigator.vibrate) {
+        // Fallback for non-Telegram environments
+        const patterns = {
+          light: 10,
+          medium: 20,
+          heavy: 30,
+          success: [10, 50, 10],
+          error: [20, 50, 20, 50, 20],
+          warning: [10, 50, 20]
+        };
+        navigator.vibrate(patterns[type] || 10);
+      }
+    }
+
+    // =====================
     // TELEGRAM INIT
     // =====================
     function initTelegram() {
@@ -1320,27 +1483,28 @@
       }).join('');
 
       // Add click handlers
-      container.querySelectorAll('.category-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          const kind = chip.dataset.kind;
-          state.selectedCategory = kind;
-          
-          // Update active state
-          container.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          
-          // Scroll to active chip (center it if possible)
-          chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          
-          // If sports is clicked, show subcategories instead of markets
-          if (kind === 'sports') {
-            showSportsSubcategories();
-          } else {
-            // Fetch markets for this category
-            fetchMarkets(kind);
-          }
-        });
-      });
+          container.querySelectorAll('.category-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+              hapticFeedback('light');
+              const kind = chip.dataset.kind;
+              state.selectedCategory = kind;
+              
+              // Update active state
+              container.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+              chip.classList.add('active');
+              
+              // Scroll to active chip (center it if possible)
+              chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              
+              // If sports is clicked, show subcategories instead of markets
+              if (kind === 'sports') {
+                showSportsSubcategories();
+              } else {
+                // Fetch markets for this category
+                fetchMarkets(kind);
+              }
+            });
+          });
     }
 
     async function showSportsSubcategories() {
@@ -1365,13 +1529,14 @@
       `;
       
       // Add click handlers for Games and Props
-      list.querySelectorAll('.category-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const sportType = btn.dataset.sportType;
-          state.selectedSportType = sportType;
-          showSportsByType(sportType);
-        });
-      });
+          list.querySelectorAll('.category-chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+              hapticFeedback('light');
+              const sportType = btn.dataset.sportType;
+              state.selectedSportType = sportType;
+              showSportsByType(sportType);
+            });
+          });
     }
 
     async function showSportsByType(type) {
@@ -1404,6 +1569,7 @@
             // Add click handlers for sports subcategories
             list.querySelectorAll('.category-chip').forEach(btn => {
               btn.addEventListener('click', () => {
+                hapticFeedback('light');
                 const sportSlug = btn.dataset.sport;
                 const sportType = btn.dataset.sportType;
                 state.selectedCategory = sportSlug;
@@ -1534,20 +1700,27 @@
               <div class="event-markets">
                 ${event.markets.map(m => {
                   const prices = m.outcomePrices || [];
-                  const yesPrice = prices[0] ? (parseFloat(prices[0]) * 100).toFixed(0) : '--';
+                  const outcomes = m.outcomes || ["Yes", "No"];
                   const vol = m.volume24hr || m.volume || 0;
                   
                   return `
-                    <div class="market-item nested" data-id="${m.id}">
-                      <div class="market-info">
-                        <div class="market-question">${m.question}</div>
-                        <div class="market-meta">
-                          <span>Vol: ${formatVolume(vol)}</span>
-                        </div>
-                      </div>
-                      <div class="market-odds">
-                        <div class="odds-yes">${yesPrice}¢</div>
-                        <div class="odds-vol">Yes</div>
+                    <div class="market-outcome-item" data-id="${m.id}">
+                      <div class="outcome-label">${m.question}</div>
+                      <div class="outcome-buttons">
+                        ${outcomes.map((outcome, idx) => {
+                          const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) : '--';
+                          const isYes = outcome.toLowerCase() === 'yes' || idx === 0;
+                          return `
+                            <div class="outcome-button-group">
+                              <span class="outcome-price">${price}%</span>
+                              <button class="outcome-btn ${isYes ? 'outcome-yes' : 'outcome-no'}" 
+                                      data-market-id="${m.id}" 
+                                      data-outcome-index="${idx}">
+                                ${outcome}
+                              </button>
+                            </div>
+                          `;
+                        }).join('')}
                       </div>
                     </div>
                   `;
@@ -1560,36 +1733,66 @@
         // Render as flat list (original behavior)
         list.innerHTML = markets.map(m => {
           const prices = m.outcomePrices || [];
-          const yesPrice = prices[0] ? (parseFloat(prices[0]) * 100).toFixed(0) : '--';
+          const outcomes = m.outcomes || ["Yes", "No"];
           const vol = m.volume24hr || m.volume || 0;
           const imgUrl = m.image || m.eventImage || m.icon || '';
           const hasImage = imgUrl && imgUrl.trim() !== '';
           
           return `
-            <div class="market-item" data-id="${m.id}">
-              ${hasImage ? `<img class="market-image" src="${imgUrl}" alt="" onerror="this.classList.add('hidden')" />` : ''}
-              <div class="market-info">
-                <div class="market-question">${m.question}</div>
-                <div class="market-meta">
-                  <span>Vol: ${formatVolume(vol)}</span>
-                </div>
+            <div class="market-card" data-id="${m.id}">
+              <div class="market-card-header">
+                ${hasImage ? `<img class="market-image" src="${imgUrl}" alt="" onerror="this.classList.add('hidden')" />` : ''}
+                <div class="market-title">${m.question}</div>
               </div>
-              <div class="market-odds">
-                <div class="odds-yes">${yesPrice}¢</div>
-                <div class="odds-vol">Yes</div>
+              <div class="market-outcomes">
+                ${outcomes.map((outcome, idx) => {
+                  const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) : '--';
+                  const isYes = outcome.toLowerCase() === 'yes' || idx === 0;
+                  return `
+                    <div class="outcome-button-group">
+                      <span class="outcome-price">${price}%</span>
+                      <button class="outcome-btn ${isYes ? 'outcome-yes' : 'outcome-no'}" 
+                              data-market-id="${m.id}" 
+                              data-outcome-index="${idx}">
+                        ${outcome}
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              <div class="market-card-footer">
+                <span class="market-volume">${formatVolume(vol)} Vol.</span>
+                <span class="market-icon">🎁</span>
               </div>
             </div>
           `;
         }).join('');
       }
 
-      // Add click handlers
-      list.querySelectorAll('.market-item').forEach(item => {
-        item.addEventListener('click', () => {
-          // Fix type mismatch: convert both to strings for comparison
-          const itemId = String(item.dataset.id);
-          const market = markets.find(m => String(m.id) === itemId || String(m.conditionId) === itemId);
-          if (market) openTradeModal(market);
+      // Add click handlers for outcome buttons
+      list.querySelectorAll('.outcome-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          hapticFeedback('light');
+          const marketId = btn.dataset.marketId;
+          const outcomeIndex = parseInt(btn.dataset.outcomeIndex);
+          const market = markets.find(m => String(m.id) === marketId || String(m.conditionId) === marketId);
+          if (market) {
+            state.selectedOutcomeIndex = outcomeIndex;
+            openTradeModal(market);
+          }
+        });
+      });
+
+      // Add click handlers for market cards (fallback)
+      list.querySelectorAll('.market-card, .market-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (!e.target.closest('.outcome-btn')) {
+            hapticFeedback('light');
+            const itemId = String(item.dataset.id);
+            const market = markets.find(m => String(m.id) === itemId || String(m.conditionId) === itemId);
+            if (market) openTradeModal(market);
+          }
         });
       });
     }
@@ -1598,6 +1801,7 @@
     // TRADE MODAL
     // =====================
     function openTradeModal(market) {
+      hapticFeedback('medium');
       state.selectedMarket = market;
       
       // Get all outcomes and prices
@@ -1665,6 +1869,7 @@
     }
 
     function closeTradeModal() {
+      hapticFeedback('light');
       document.getElementById('tradeModal').classList.remove('visible');
       state.selectedMarket = null;
     }
