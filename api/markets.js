@@ -155,60 +155,47 @@ module.exports = async (req, res) => {
               // Match if either tags or text match
               const matches = tagMatches || textMatches;
               
-              // For games only, also check if event title/slug looks like a game (has team names, vs, etc.)
+              // For games only, skip obvious prop/future events
               if (isGamesOnly && matches) {
                 const eventTitleLower = eventTitle;
-                const eventSlugLower = eventSlug;
-                // Game events typically have "vs", team names, or game-related terms
-                const looksLikeGame = 
-                  eventTitleLower.includes(" vs ") ||
-                  eventTitleLower.includes(" v ") ||
-                  eventTitleLower.includes("week ") ||
-                  eventSlugLower.includes("vs") ||
-                  eventSlugLower.includes("week");
+                // Skip obvious prop/future events (but don't skip if we're not sure)
+                const isDefinitelyProp = 
+                  eventTitleLower.includes("mvp") ||
+                  eventTitleLower.includes("leader") ||
+                  eventTitleLower.includes("champion") && !eventTitleLower.includes("week") ||
+                  eventTitleLower.includes("award") ||
+                  eventTitleLower.includes("winner") && !eventTitleLower.includes("week");
                 
-                // Skip events that don't look like games (e.g., "NFL MVP", "NFL Leader", etc.)
-                if (!looksLikeGame && (eventTitleLower.includes("mvp") || eventTitleLower.includes("leader") || eventTitleLower.includes("champion") || eventTitleLower.includes("award"))) {
+                if (isDefinitelyProp) {
                   continue;
                 }
               }
               
               if (matches && event.markets && Array.isArray(event.markets)) {
-                // For games only, filter to actual game markets (not props)
+                // For games only, check if this event has any game-like markets
+                // Be less strict - include events that might have games
                 if (isGamesOnly) {
-                  // Check if this event has game-like markets (vs, moneyline, spread)
-                  // Be very strict - must have actual game markets, not props
-                  const hasGameMarkets = event.markets.some(m => {
+                  // Check if this event has ANY markets that could be games
+                  // Don't be too strict - include if it has markets that aren't clearly props
+                  const hasPotentialGameMarkets = event.markets.some(m => {
                     const question = (m.question || "").toLowerCase();
                     const slug = (m.slug || "").toLowerCase();
                     
-                    // Must be a clear game market
-                    const isGameMarket = 
-                      question.includes(" vs ") || 
-                      question.includes(" v ") ||
-                      question.includes("moneyline") ||
-                      question.includes("ml") ||
-                      question.includes("spread") ||
-                      (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
-                      slug.includes("moneyline") ||
-                      slug.includes("spread") ||
-                      slug.includes("total");
-                    
-                    // Must NOT be a prop
-                    const isProp = 
-                      question.includes("will ") ||
+                    // Skip if it's clearly a prop
+                    const isDefinitelyProp = 
+                      question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award")) ||
                       question.includes("leader") ||
                       question.includes("mvp") ||
                       question.includes("award") ||
-                      question.includes("champion") ||
-                      question.includes("winner") ||
-                      question.includes("prop");
+                      question.includes("champion") && !question.includes("week") ||
+                      slug.includes("prop") && slug.includes("leader");
                     
-                    return isGameMarket && !isProp;
+                    // If it's not clearly a prop, include it
+                    return !isDefinitelyProp;
                   });
                   
-                  if (!hasGameMarkets) {
-                    // Skip events that don't have game markets (they're props/futures)
+                  // Only skip if ALL markets are clearly props
+                  if (!hasPotentialGameMarkets) {
                     continue;
                   }
                 }
@@ -221,33 +208,18 @@ module.exports = async (req, res) => {
                       const question = (market.question || "").toLowerCase();
                       const slug = (market.slug || "").toLowerCase();
                       
-                      // Only include markets that are clearly game markets
-                      const isGameMarket = 
-                        question.includes(" vs ") ||
-                        question.includes(" v ") ||
-                        question.includes("moneyline") ||
-                        question.includes("ml") ||
-                        question.includes("spread") ||
-                        (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
-                        slug.includes("moneyline") ||
-                        slug.includes("spread") ||
-                        slug.includes("total");
-                      
-                      // Exclude all props - be very aggressive
-                      const isProp = 
-                        question.includes("will ") ||
+                      // Exclude only clearly prop markets (be less strict - include more)
+                      const isDefinitelyProp = 
+                        (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award"))) ||
                         question.includes("leader") ||
                         question.includes("mvp") ||
                         question.includes("award") ||
-                        question.includes("champion") ||
-                        question.includes("winner") ||
-                        question.includes("prop") ||
-                        question.includes("over/under") && question.includes("player") ||
-                        slug.includes("prop") ||
-                        slug.includes("leader") ||
-                        slug.includes("mvp");
+                        (question.includes("champion") && !question.includes("week") && !question.includes("vs")) ||
+                        (question.includes("winner") && !question.includes("week") && !question.includes("vs") && !question.includes("moneyline")) ||
+                        (slug.includes("prop") && (slug.includes("leader") || slug.includes("mvp")));
                       
-                      if (!isGameMarket || isProp) {
+                      // Include everything else (games, spreads, totals, moneyline, etc.)
+                      if (isDefinitelyProp) {
                         continue;
                       }
                     }
@@ -307,113 +279,114 @@ module.exports = async (req, res) => {
         console.log("[markets] Error fetching tags:", e.message);
       }
       
-      // Strategy 3: Fetch markets directly by tag, then match to events for games
-      if (categoryTagId) {
-        try {
-          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&active=true&limit=1000`;
-          const resp = await fetch(url);
-          if (resp.ok) {
-            const data = await resp.json();
-            if (Array.isArray(data)) {
-              const newMarkets = data.filter(m => !m.closed && m.active !== false);
-              
-              if (isGamesOnly) {
-                // For games: fetch all events and match markets to events
-                // Markets that belong to events are game markets
-                try {
-                  const allEventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
-                  const allEventsResp = await fetch(allEventsUrl);
-                  if (allEventsResp.ok) {
-                    const allEvents = await allEventsResp.json();
-                    if (Array.isArray(allEvents)) {
-                      // Create a map of market IDs to events
-                      const marketIdToEvent = new Map();
-                      for (const event of allEvents) {
-                        if (event.markets && Array.isArray(event.markets)) {
-                          for (const eventMarket of event.markets) {
-                            const marketId = eventMarket.id || eventMarket.conditionId;
-                            if (marketId) {
-                              marketIdToEvent.set(marketId, event);
-                            }
-                          }
-                        }
-                      }
-                      
-                      // Only add markets that belong to events
-                      let addedCount = 0;
-                      for (const market of newMarkets) {
-                        const marketId = market.id || market.conditionId;
-                        const existing = markets.find(m => (m.id || m.conditionId) === marketId);
-                        if (!existing && marketIdToEvent.has(marketId)) {
-                          const event = marketIdToEvent.get(marketId);
-                          const question = (market.question || "").toLowerCase();
-                          
-                          // Additional filter: only include game markets (not props) - be very strict
-                          const slug = (market.slug || "").toLowerCase();
-                          
-                          // Only include markets that are clearly game markets
-                          const isGameMarket = 
-                            question.includes(" vs ") ||
-                            question.includes(" v ") ||
-                            question.includes("moneyline") ||
-                            question.includes("ml") ||
-                            question.includes("spread") ||
-                            (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
-                            slug.includes("moneyline") ||
-                            slug.includes("spread") ||
-                            slug.includes("total");
-                          
-                          // Exclude all props - be very aggressive
-                          const isProp = 
-                            question.includes("will ") ||
-                            question.includes("leader") ||
-                            question.includes("mvp") ||
-                            question.includes("award") ||
-                            question.includes("champion") ||
-                            question.includes("winner") ||
-                            question.includes("prop") ||
-                            question.includes("over/under") && question.includes("player") ||
-                            slug.includes("prop") ||
-                            slug.includes("leader") ||
-                            slug.includes("mvp");
-                          
-                          if (isGameMarket && !isProp) {
-                            markets.push({
-                              ...market,
-                              eventId: event.id,
-                              eventTitle: event.title,
-                              eventSlug: event.slug,
-                              eventTicker: event.ticker,
-                              eventStartDate: event.startDate,
-                              eventEndDate: event.endDate,
-                              eventImage: event.image || event.icon,
-                              eventVolume: event.volume,
-                              eventLiquidity: event.liquidity,
-                            });
-                            addedCount++;
-                          }
-                        }
-                      }
-                      console.log("[markets] Added", addedCount, "game markets matched to events (total:", markets.length, ")");
-                    }
-                  }
-                } catch (e) {
-                  console.log("[markets] Error matching markets to events:", e.message);
-                }
-              } else {
-                // For props or all markets, include everything
-                for (const market of newMarkets) {
-                  const existing = markets.find(m => m.id === market.id);
-                  if (!existing) {
-                    markets.push(market);
-                  }
-                }
-                console.log("[markets] Added", newMarkets.length, "markets from direct fetch");
+      // Strategy 3: Fetch markets directly by tag IDs, then match to events for games
+      if (categoryTagIds.length > 0 || categoryTagId) {
+        // Use all tag IDs from /sports endpoint, or fallback to single tag ID
+        const tagIdsToUse = categoryTagIds.length > 0 ? categoryTagIds : [categoryTagId];
+        
+        // Fetch markets for each tag ID
+        const marketFetchPromises = tagIdsToUse.map(async (tagId) => {
+          try {
+            const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&active=true&limit=1000`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const data = await resp.json();
+              if (Array.isArray(data)) {
+                return data.filter(m => !m.closed && m.active !== false);
               }
+            }
+            return [];
+          } catch (e) {
+            console.log("[markets] Error fetching markets for tag", tagId, e.message);
+            return [];
+          }
+        });
+        
+        try {
+          const marketArrays = await Promise.all(marketFetchPromises);
+          const newMarkets = marketArrays.flat();
+          console.log("[markets] Fetched", newMarkets.length, "markets from tag IDs:", tagIdsToUse);
+          
+          if (newMarkets.length > 0) {
+            if (isGamesOnly) {
+              // For games: fetch all events and match markets to events
+              // Markets that belong to events are game markets
+              try {
+                const allEventsUrl = `${GAMMA_API}/events?closed=false&active=true&limit=1000`;
+                const allEventsResp = await fetch(allEventsUrl);
+                if (allEventsResp.ok) {
+                  const allEvents = await allEventsResp.json();
+                  if (Array.isArray(allEvents)) {
+                    // Create a map of market IDs to events
+                    const marketIdToEvent = new Map();
+                    for (const event of allEvents) {
+                      if (event.markets && Array.isArray(event.markets)) {
+                        for (const eventMarket of event.markets) {
+                          const marketId = eventMarket.id || eventMarket.conditionId;
+                          if (marketId) {
+                            marketIdToEvent.set(marketId, event);
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Only add markets that belong to events
+                    let addedCount = 0;
+                    for (const market of newMarkets) {
+                      const marketId = market.id || market.conditionId;
+                      const existing = markets.find(m => (m.id || m.conditionId) === marketId);
+                      if (!existing && marketIdToEvent.has(marketId)) {
+                        const event = marketIdToEvent.get(marketId);
+                        const question = (market.question || "").toLowerCase();
+                        
+                        // Exclude only clearly prop markets (be less strict)
+                        const slug = (market.slug || "").toLowerCase();
+                        const isDefinitelyProp = 
+                          (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award"))) ||
+                          question.includes("leader") ||
+                          question.includes("mvp") ||
+                          question.includes("award") ||
+                          (question.includes("champion") && !question.includes("week") && !question.includes("vs")) ||
+                          (question.includes("winner") && !question.includes("week") && !question.includes("vs") && !question.includes("moneyline")) ||
+                          (slug.includes("prop") && (slug.includes("leader") || slug.includes("mvp")));
+                        
+                        if (!isDefinitelyProp) {
+                          markets.push({
+                            ...market,
+                            eventId: event.id,
+                            eventTitle: event.title,
+                            eventSlug: event.slug,
+                            eventTicker: event.ticker,
+                            eventStartDate: event.startDate,
+                            eventEndDate: event.endDate,
+                            eventImage: event.image || event.icon,
+                            eventVolume: event.volume,
+                            eventLiquidity: event.liquidity,
+                            eventTags: event.tags || [],
+                          });
+                          addedCount++;
+                        }
+                      }
+                    }
+                    console.log("[markets] Added", addedCount, "game markets matched to events (total:", markets.length, ")");
+                  }
+                }
+              } catch (e) {
+                console.log("[markets] Error matching markets to events:", e.message);
+              }
+            } else {
+              // For props or all markets, include everything
+              for (const market of newMarkets) {
+                const existing = markets.find(m => m.id === market.id);
+                if (!existing) {
+                  markets.push(market);
+                }
+              }
+              console.log("[markets] Added", newMarkets.length, "markets from direct fetch");
             }
           }
         } catch (e) {
-          console.log("[markets] Error fetching markets directly:", e.message);
+          console.log("[markets] Error processing markets from tag IDs:", e.message);
         }
       }
       
@@ -618,37 +591,22 @@ module.exports = async (req, res) => {
           return false;
         }
         
-        // Additional strict filtering for game markets only
+        // Less strict filtering - exclude only clearly prop markets
         const question = (m.question || "").toLowerCase();
         const slug = (m.slug || "").toLowerCase();
         
-        // Only include markets that are clearly game markets
-        const isGameMarket = 
-          question.includes(" vs ") ||
-          question.includes(" v ") ||
-          question.includes("moneyline") ||
-          question.includes("ml") ||
-          question.includes("spread") ||
-          (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
-          slug.includes("moneyline") ||
-          slug.includes("spread") ||
-          slug.includes("total");
-        
-        // Exclude all props - be very aggressive
-        const isProp = 
-          question.includes("will ") ||
+        // Exclude only clearly prop markets (leader, MVP, award markets)
+        const isDefinitelyProp = 
+          (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award"))) ||
           question.includes("leader") ||
           question.includes("mvp") ||
           question.includes("award") ||
-          question.includes("champion") ||
-          question.includes("winner") ||
-          question.includes("prop") ||
-          (question.includes("over/under") && question.includes("player")) ||
-          slug.includes("prop") ||
-          slug.includes("leader") ||
-          slug.includes("mvp");
+          (question.includes("champion") && !question.includes("week") && !question.includes("vs")) ||
+          (question.includes("winner") && !question.includes("week") && !question.includes("vs") && !question.includes("moneyline")) ||
+          (slug.includes("prop") && (slug.includes("leader") || slug.includes("mvp")));
         
-        return isGameMarket && !isProp;
+        // Include everything else (games, spreads, totals, moneyline, etc.)
+        return !isDefinitelyProp;
       });
       console.log("[markets] After games-only filter:", markets.length, "(removed", beforeFilter - markets.length, "non-game markets)");
     }
