@@ -361,6 +361,17 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      user-select: all;
+    }
+    .wallet-address:hover {
+      background: var(--bg);
+    }
+    .wallet-address:active {
+      background: var(--card);
     }
     .copy-btn {
       background: var(--card);
@@ -373,6 +384,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
+      flex-shrink: 0;
     }
     .copy-btn:hover {
       background: var(--green);
@@ -387,6 +399,27 @@
       color: var(--text);
       border-color: var(--green);
     }
+    .fund-wallet-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .fund-wallet-btn:hover {
+      opacity: 0.9;
+    }
+    .fund-wallet-btn:active {
+      transform: scale(0.95);
+    }
     .wallet-status {
       background: var(--accent);
       color: white;
@@ -399,6 +432,228 @@
       font-size: 13px;
       margin-bottom: 12px;
     }
+    .wallet-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .wallet-action-btn {
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .wallet-action-btn:hover {
+      background: var(--card);
+    }
+    .wallet-action-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Fund Modal */
+    .fund-info {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .fund-currency-selector {
+      display: flex;
+      gap: 8px;
+    }
+    .currency-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .currency-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .fund-amount input {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .fund-address-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .fund-address-section label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .fund-address-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .fund-address-display code {
+      flex: 1;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+      color: var(--text);
+    }
+    .fund-instructions {
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .fund-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+    }
+    .fund-summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .fund-summary-row span:first-child {
+      color: var(--text-muted);
+    }
+    .fund-summary-row span:last-child {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .modal-close-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .modal-close-btn:hover {
+      background: var(--card);
+    }
+
+    /* Positions */
+    .position-item {
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+    .position-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .position-question {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      flex: 1;
+    }
+    .position-side {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .position-side.yes {
+      background: var(--green-soft);
+      color: var(--text);
+    }
+    .position-side.no {
+      background: var(--bg);
+      color: var(--text-muted);
+    }
+    .position-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .position-value {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .position-value.winning {
+      color: var(--green);
+    }
+    .payout-item {
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+    .payout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .payout-amount {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .payout-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border-radius: var(--radius-sm);
+      background: var(--green);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .payout-btn:hover {
+      opacity: 0.9;
+    }
+    .payout-btn:active {
+      transform: scale(0.98);
+    }
+    .payout-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Legacy wallet actions (kept for compatibility) */
     .wallet-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1059,12 +1314,15 @@
             <span>SOL Wallet</span>
           </div>
           <div class="wallet-address-row">
-            <span class="wallet-address" id="solWalletAddress">Loading...</span>
+            <span class="wallet-address" id="solWalletAddress" title="Click to copy">Loading...</span>
             <button class="copy-btn" id="copySolBtn" title="Copy SOL address">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
+            </button>
+            <button class="fund-wallet-btn" id="fundSolQuickBtn" title="Fund SOL wallet">
+              Fund
             </button>
           </div>
         </div>
@@ -1074,17 +1332,28 @@
             <span>USDC Wallet</span>
           </div>
           <div class="wallet-address-row">
-            <span class="wallet-address" id="usdcWalletAddress">Loading...</span>
+            <span class="wallet-address" id="usdcWalletAddress" title="Click to copy">Loading...</span>
             <button class="copy-btn" id="copyUsdcBtn" title="Copy USDC address">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
             </button>
+            <button class="fund-wallet-btn" id="fundUsdcQuickBtn" title="Fund USDC wallet">
+              Fund
+            </button>
           </div>
         </div>
       </div>
       <div class="wallet-status" id="walletStatusBar">Checking status...</div>
+    </div>
+
+    <!-- Positions Card -->
+    <div class="card" id="positionsCard" style="display: none;">
+      <h3 style="margin-bottom: 12px; font-size: 16px; font-weight: 600;">Active Positions</h3>
+      <div id="positionsList">
+        <div class="loading" style="padding: 10px;">No active positions</div>
+      </div>
     </div>
 
     <!-- Markets Card -->
@@ -1138,6 +1407,73 @@
       </div>
       
       <button class="trade-submit" id="tradeSubmit" disabled>Connect Wallet First</button>
+    </div>
+  </div>
+
+  <!-- Fund Modal -->
+  <div class="modal-overlay" id="fundModal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3 class="modal-title" id="fundModalTitle">Fund Wallet</h3>
+      <p class="modal-subtitle" id="fundModalSubtitle">Send funds to your wallet address</p>
+      
+      <div class="fund-info" id="fundInfo">
+        <div class="fund-currency-selector">
+          <button class="currency-btn active" data-currency="usdc">USDC</button>
+          <button class="currency-btn" data-currency="sol">SOL</button>
+        </div>
+        
+        <div class="fund-amount">
+          <label>Amount</label>
+          <input type="number" id="fundAmount" placeholder="10.00" min="1" step="0.01" />
+        </div>
+        
+        <div class="fund-address-section">
+          <label>Send to this address:</label>
+          <div class="fund-address-display">
+            <code id="fundAddress">Loading...</code>
+            <button class="copy-btn" id="copyFundAddressBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div class="fund-instructions" id="fundInstructions">
+          <p>Send USDC (Polygon network) to the address above. Minimum deposit: $10</p>
+        </div>
+        
+        <div class="fund-summary">
+          <div class="fund-summary-row">
+            <span>Network</span>
+            <span id="fundNetwork">Polygon</span>
+          </div>
+          <div class="fund-summary-row">
+            <span>Minimum</span>
+            <span id="fundMinimum">$10.00</span>
+          </div>
+        </div>
+      </div>
+      
+      <button class="trade-submit" id="fundSubmitBtn">I've Sent the Funds</button>
+      <button class="modal-close-btn" id="closeFundModal">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Payout Modal -->
+  <div class="modal-overlay" id="payoutModal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3 class="modal-title">Claim Payout</h3>
+      <p class="modal-subtitle">Withdraw winnings from your winning positions</p>
+      
+      <div class="payout-list" id="payoutList">
+        <!-- Payout items will be dynamically generated -->
+      </div>
+      
+      <button class="modal-close-btn" id="closePayoutModal">Close</button>
     </div>
   </div>
 
@@ -1373,11 +1709,30 @@
       try {
         console.log('Loading/creating wallet for:', state.telegramId);
         
-        // Get or create wallet client-side (NO API CALL - works offline!)
-        const wallet = getOrCreateWallet();
+        // Call API to get or create wallet
+        const resp = await fetch(`/api/wallet?telegram_id=${encodeURIComponent(state.telegramId)}`);
+        
+        if (!resp.ok) {
+          const errorData = await resp.json();
+          throw new Error(errorData.message || `HTTP ${resp.status}: Failed to load wallet`);
+        }
+        
+        const data = await resp.json();
+        
+        if (!data.success || !data.wallet) {
+          throw new Error('Invalid wallet response from server');
+        }
+        
+        const wallet = {
+          solana: data.wallet.solana,
+          polygon: data.wallet.polygon,
+          userId: data.wallet.userId,
+          createdAt: data.wallet.createdAt
+        };
+        
         state.wallet = wallet;
         
-        console.log('Wallet loaded:', wallet.polygon, wallet.solana);
+        console.log('Wallet loaded:', wallet.polygon, wallet.solana, data.isNew ? '(new)' : '(existing)');
         
         // Display SOL wallet
         const solEl = document.getElementById('solWalletAddress');
@@ -1389,14 +1744,40 @@
         
         // Update status
         const statusEl = document.getElementById('walletStatusBar');
-        if (statusEl) statusEl.textContent = '✓ Wallets ready - fund to trade';
+        if (statusEl) {
+          if (data.isNew) {
+            statusEl.textContent = '✓ Wallets created - fund to trade';
+          } else {
+            statusEl.textContent = '✓ Wallets loaded - fund to trade';
+          }
+        }
         
-        // Setup copy buttons
+        // Setup copy buttons and make addresses clickable
         setupCopyButton('copySolBtn', wallet.solana);
         setupCopyButton('copyUsdcBtn', wallet.polygon);
+        setupClickableAddress('solWalletAddress', wallet.solana);
+        setupClickableAddress('usdcWalletAddress', wallet.polygon);
         
-        // Load balance (will show 0 for now)
-        loadBalance();
+        // Setup quick fund buttons (only once)
+        const fundSolBtn = document.getElementById('fundSolQuickBtn');
+        const fundUsdcBtn = document.getElementById('fundUsdcQuickBtn');
+        
+        if (fundSolBtn && !fundSolBtn.dataset.listenerAdded) {
+          fundSolBtn.addEventListener('click', () => {
+            openFundModal('sol');
+          });
+          fundSolBtn.dataset.listenerAdded = 'true';
+        }
+        
+        if (fundUsdcBtn && !fundUsdcBtn.dataset.listenerAdded) {
+          fundUsdcBtn.addEventListener('click', () => {
+            openFundModal('usdc');
+          });
+          fundUsdcBtn.dataset.listenerAdded = 'true';
+        }
+        
+        // Load balance from Supabase and on-chain
+        await loadBalance();
         
       } catch (err) {
         console.error('Wallet error:', err);
@@ -1410,13 +1791,34 @@
       }
     }
 
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        hapticFeedback('light');
+        return true;
+      } catch (err) {
+        console.error('Copy failed:', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        hapticFeedback('light');
+        return true;
+      }
+    }
+
     function setupCopyButton(btnId, address) {
       const btn = document.getElementById(btnId);
       if (!btn || !address) return;
       
       btn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(address);
+        const success = await copyToClipboard(address);
+        if (success) {
           btn.classList.add('copied');
           btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
           
@@ -1424,31 +1826,76 @@
             btn.classList.remove('copied');
             btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
           }, 2000);
-        } catch (err) {
-          console.error('Copy failed:', err);
-          // Fallback for older browsers
-          const textArea = document.createElement('textarea');
-          textArea.value = address;
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
+        }
+      };
+    }
+
+    function setupClickableAddress(elementId, address) {
+      const el = document.getElementById(elementId);
+      if (!el || !address) return;
+      
+      el.onclick = async () => {
+        const success = await copyToClipboard(address);
+        if (success) {
+          // Visual feedback
+          const originalBg = el.style.background;
+          el.style.background = 'var(--green-soft)';
+          el.textContent = 'Copied!';
           
-          btn.classList.add('copied');
-          setTimeout(() => btn.classList.remove('copied'), 2000);
+          setTimeout(() => {
+            el.style.background = originalBg;
+            el.textContent = address;
+          }, 1500);
         }
       };
     }
 
     async function loadBalance() {
-      // For now, show zero balances (would connect to blockchain in production)
+      if (!state.wallet) {
+        document.getElementById('usdcBalance').textContent = '$0.00';
+        document.getElementById('positionsValue').textContent = '$0.00';
+        document.getElementById('totalBalance').textContent = '$0.00';
+        return;
+      }
+
+      try {
+        // Try to fetch balance from API
+        const resp = await fetch(`/api/balances?telegram_id=${encodeURIComponent(state.telegramId)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success) {
+            document.getElementById('usdcBalance').textContent = `$${data.usdc.toFixed(2)}`;
+            document.getElementById('positionsValue').textContent = `$${data.positions.toFixed(2)}`;
+            document.getElementById('totalBalance').textContent = `$${data.total.toFixed(2)}`;
+            
+            // Update wallet status if available
+            if (data.walletStatus) {
+              const statusEl = document.getElementById('walletStatusBar');
+              if (statusEl) {
+                if (data.walletStatus.exists) {
+                  if (data.walletStatus.clobRegistered && data.walletStatus.usdcApproved) {
+                    statusEl.textContent = '✓ Wallet ready for trading';
+                  } else if (data.walletStatus.clobRegistered) {
+                    statusEl.textContent = '⚠ CLOB registered - approve USDC to trade';
+                  } else {
+                    statusEl.textContent = '⚠ Register with CLOB to trade';
+                  }
+                } else {
+                  statusEl.textContent = '✓ Wallets ready - fund to trade';
+                }
+              }
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('[loadBalance] API not available, using defaults:', err.message);
+      }
+
+      // Fallback: show zero balances
       document.getElementById('usdcBalance').textContent = '$0.00';
       document.getElementById('positionsValue').textContent = '$0.00';
       document.getElementById('totalBalance').textContent = '$0.00';
-      
-      // In production, you'd check actual on-chain balances:
-      // const provider = new ethers.providers.JsonRpcProvider('https://polygon-rpc.com');
-      // const balance = await provider.getBalance(state.wallet.polygon);
     }
 
     // =====================
@@ -1602,7 +2049,8 @@
 
       try {
         console.log('[fetchMarkets] Fetching:', kind, 'sportType:', sportType);
-        let apiUrl = `/api/markets?kind=${kind}&limit=10000&minVolume=0`;
+        // Reduce limit for faster loading - 1000 markets is plenty for initial display
+        let apiUrl = `/api/markets?kind=${kind}&limit=1000&minVolume=0`;
         if (sportType) {
           apiUrl += `&sportType=${sportType}`;
         }
@@ -1904,6 +2352,355 @@
     }
 
     // =====================
+    // FUNDING
+    // =====================
+    let currentFundingCurrency = 'usdc';
+
+    function openFundModal(currency = 'usdc') {
+      hapticFeedback('medium');
+      currentFundingCurrency = currency;
+      const modal = document.getElementById('fundModal');
+      const title = document.getElementById('fundModalTitle');
+      const subtitle = document.getElementById('fundModalSubtitle');
+      const addressEl = document.getElementById('fundAddress');
+      const networkEl = document.getElementById('fundNetwork');
+      const minimumEl = document.getElementById('fundMinimum');
+      const instructionsEl = document.getElementById('fundInstructions');
+
+      // Update currency buttons
+      document.querySelectorAll('.currency-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.currency === currency) {
+          btn.classList.add('active');
+        }
+      });
+
+      if (!state.wallet) {
+        alert('Please create a wallet first');
+        return;
+      }
+
+      const walletAddress = currency === 'usdc' ? state.wallet.polygon : state.wallet.solana;
+      addressEl.textContent = walletAddress;
+
+      if (currency === 'usdc') {
+        title.textContent = 'Fund USDC Wallet';
+        subtitle.textContent = 'Send USDC to your Polygon wallet';
+        networkEl.textContent = 'Polygon';
+        minimumEl.textContent = '$10.00';
+        instructionsEl.innerHTML = '<p>Send USDC (Polygon network) to the address above. Minimum deposit: $10. Make sure you\'re sending on the Polygon network, not Ethereum.</p>';
+      } else {
+        title.textContent = 'Fund SOL Wallet';
+        subtitle.textContent = 'Send SOL to your Solana wallet';
+        networkEl.textContent = 'Solana';
+        minimumEl.textContent = '0.1 SOL';
+        instructionsEl.innerHTML = '<p>Send SOL to the address above. Minimum deposit: 0.1 SOL. Make sure you\'re sending on the Solana network.</p>';
+      }
+
+      document.getElementById('fundAmount').value = '';
+      modal.classList.add('visible');
+    }
+
+    function closeFundModal() {
+      hapticFeedback('light');
+      document.getElementById('fundModal').classList.remove('visible');
+    }
+
+    async function submitFunding() {
+      const amount = parseFloat(document.getElementById('fundAmount').value);
+      const currency = currentFundingCurrency;
+
+      if (!amount || amount <= 0) {
+        hapticFeedback('error');
+        alert('Please enter a valid amount');
+        return;
+      }
+
+      const minAmount = currency === 'usdc' ? 10 : 0.1;
+      if (amount < minAmount) {
+        hapticFeedback('error');
+        alert(`Minimum deposit is ${currency === 'usdc' ? '$' : ''}${minAmount}${currency === 'sol' ? ' SOL' : ''}`);
+        return;
+      }
+
+      const submitBtn = document.getElementById('fundSubmitBtn');
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+      hapticFeedback('medium');
+
+      try {
+        const walletAddress = currency === 'usdc' ? state.wallet.polygon : state.wallet.solana;
+
+        const resp = await fetch('/api/fund', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            telegram_id: state.telegramId,
+            currency: currency,
+            amount: amount,
+            payment_method: 'crypto',
+            wallet_address: walletAddress
+          })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          throw new Error(data.message || data.error || 'Funding failed');
+        }
+
+        if (data.success) {
+          hapticFeedback('success');
+          alert(`Funding instructions:\n\n${data.instructions}\n\nYour balance will update once the transaction is confirmed on-chain.`);
+          closeFundModal();
+          // Refresh balance after a delay
+          setTimeout(() => loadBalance(), 2000);
+        } else {
+          throw new Error(data.message || 'Funding failed');
+        }
+
+      } catch (err) {
+        console.error('[submitFunding] Error:', err);
+        hapticFeedback('error');
+        alert(`Funding failed: ${err.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
+
+    // =====================
+    // POSITIONS & PAYOUTS
+    // =====================
+    async function loadPositions() {
+      // In production, fetch from API
+      // For now, show empty or mock positions
+      const positionsCard = document.getElementById('positionsCard');
+      const positionsList = document.getElementById('positionsList');
+
+      try {
+        // In production: const resp = await fetch(`/api/positions?telegram_id=${state.telegramId}`);
+        // For now, show empty
+        positionsList.innerHTML = '<div class="loading" style="padding: 10px;">No active positions</div>';
+        positionsCard.style.display = 'none';
+      } catch (err) {
+        console.error('[loadPositions] Error:', err);
+      }
+    }
+
+    async function loadPayouts() {
+      try {
+        const resp = await fetch(`/api/payout?telegram_id=${encodeURIComponent(state.telegramId)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && data.pending_payouts && data.pending_payouts.length > 0) {
+            // Show payout modal or notification
+            openPayoutModal(data.pending_payouts);
+          }
+        }
+      } catch (err) {
+        console.error('[loadPayouts] Error:', err);
+      }
+    }
+
+    function openPayoutModal(payouts) {
+      const modal = document.getElementById('payoutModal');
+      const list = document.getElementById('payoutList');
+
+      if (!payouts || payouts.length === 0) {
+        list.innerHTML = '<div class="loading" style="padding: 10px;">No pending payouts</div>';
+        return;
+      }
+
+      list.innerHTML = payouts.map(payout => `
+        <div class="payout-item">
+          <div class="payout-header">
+            <div>
+              <div class="position-question">${payout.market_question || 'Winning Position'}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                Position ID: ${payout.position_id}
+              </div>
+            </div>
+            <div class="payout-amount">$${payout.amount.toFixed(2)}</div>
+          </div>
+          <button class="payout-btn" 
+                  data-position-id="${payout.position_id}"
+                  data-amount="${payout.amount}">
+            Claim Payout
+          </button>
+        </div>
+      `).join('');
+
+      // Add click handlers
+      list.querySelectorAll('.payout-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await claimPayout(btn.dataset.positionId, parseFloat(btn.dataset.amount));
+        });
+      });
+
+      modal.classList.add('visible');
+    }
+
+    function closePayoutModal() {
+      hapticFeedback('light');
+      document.getElementById('payoutModal').classList.remove('visible');
+    }
+
+    async function claimPayout(positionId, amount) {
+      hapticFeedback('medium');
+
+      try {
+        const resp = await fetch('/api/payout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            telegram_id: state.telegramId,
+            position_id: positionId,
+            amount: amount,
+            wallet_address: state.wallet.polygon
+          })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          throw new Error(data.message || data.error || 'Payout failed');
+        }
+
+        if (data.success) {
+          hapticFeedback('success');
+          alert(`Payout initiated!\n\nAmount: $${amount.toFixed(2)}\n\n${data.message || 'Funds will arrive in your wallet shortly.'}`);
+          closePayoutModal();
+          await loadBalance();
+        } else {
+          throw new Error(data.message || 'Payout failed');
+        }
+
+      } catch (err) {
+        console.error('[claimPayout] Error:', err);
+        hapticFeedback('error');
+        alert(`Payout failed: ${err.message}`);
+      }
+    }
+
+    // =====================
+    // TRADE EXECUTION
+    // =====================
+    async function executeTrade() {
+      if (!state.selectedMarket) {
+        hapticFeedback('error');
+        alert('No market selected');
+        return;
+      }
+
+      if (!state.wallet) {
+        hapticFeedback('error');
+        alert('Please create a wallet first');
+        return;
+      }
+
+      const amountInput = document.getElementById('tradeAmount');
+      const amount = parseFloat(amountInput.value);
+      
+      if (!amount || amount <= 0) {
+        hapticFeedback('error');
+        alert('Please enter a valid amount');
+        return;
+      }
+
+      const submitBtn = document.getElementById('tradeSubmit');
+      const originalText = submitBtn.textContent;
+      
+      // Disable button and show loading
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+      hapticFeedback('medium');
+
+      try {
+        const market = state.selectedMarket;
+        const side = state.tradeSide;
+        const outcomeIndex = state.selectedOutcomeIndex || 0;
+        
+        // Get market ID (could be id, conditionId, or condition_id)
+        const marketId = market.id || market.conditionId || market.condition_id;
+        
+        if (!marketId) {
+          throw new Error('Market ID not found');
+        }
+
+        console.log('[executeTrade] Executing trade:', {
+          marketId,
+          side,
+          amount,
+          outcomeIndex,
+          wallet: state.wallet.polygon
+        });
+
+        // Call trade API
+        const resp = await fetch('/api/trade', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            telegram_id: state.telegramId,
+            market_id: marketId,
+            condition_id: marketId,
+            outcome_index: outcomeIndex,
+            side: side,
+            amount: amount,
+            wallet_address: state.wallet.polygon
+          })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          throw new Error(data.message || data.error || 'Trade failed');
+        }
+
+        if (data.success) {
+          hapticFeedback('success');
+          
+          // Show success message
+          const successMsg = `Trade executed!\n\n` +
+            `Market: ${market.question.substring(0, 50)}...\n` +
+            `Side: ${side.toUpperCase()}\n` +
+            `Amount: $${amount.toFixed(2)}\n` +
+            `Shares: ${data.shares.toFixed(2)}\n` +
+            `Trade ID: ${data.trade_id}`;
+          
+          alert(successMsg);
+          
+          // Close modal
+          closeTradeModal();
+          
+          // Reload balance
+          await loadBalance();
+          
+          // Optionally refresh markets to show updated prices
+          // fetchMarkets(state.selectedCategory, state.selectedSportType);
+        } else {
+          throw new Error(data.message || 'Trade failed');
+        }
+
+      } catch (err) {
+        console.error('[executeTrade] Error:', err);
+        hapticFeedback('error');
+        alert(`Trade failed: ${err.message}`);
+      } finally {
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
+
+    // =====================
     // INIT
     // =====================
     function initModeChips() {
@@ -1951,7 +2748,55 @@
 
       // Submit
       document.getElementById('tradeSubmit').addEventListener('click', async () => {
-        alert('Trading coming soon! Wallet needs USDC and CLOB registration first.');
+        await executeTrade();
+      });
+    }
+
+    function initFundModal() {
+      // Close on backdrop click
+      document.getElementById('fundModal').addEventListener('click', (e) => {
+        if (e.target.id === 'fundModal') closeFundModal();
+      });
+
+      // Close button
+      document.getElementById('closeFundModal')?.addEventListener('click', () => {
+        closeFundModal();
+      });
+
+      // Currency selector
+      document.querySelectorAll('.currency-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const currency = btn.dataset.currency;
+          document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          openFundModal(currency);
+        });
+      });
+
+      // Copy fund address button
+      document.getElementById('copyFundAddressBtn')?.addEventListener('click', async () => {
+        const addressEl = document.getElementById('fundAddress');
+        if (addressEl && addressEl.textContent) {
+          await copyToClipboard(addressEl.textContent);
+          const btn = document.getElementById('copyFundAddressBtn');
+          btn.classList.add('copied');
+          setTimeout(() => btn.classList.remove('copied'), 2000);
+        }
+      });
+
+      // Submit button
+      document.getElementById('fundSubmitBtn')?.addEventListener('click', async () => {
+        await submitFunding();
+      });
+
+      // Payout modal close
+      document.getElementById('closePayoutModal')?.addEventListener('click', () => {
+        closePayoutModal();
+      });
+
+      // Payout modal backdrop
+      document.getElementById('payoutModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'payoutModal') closePayoutModal();
       });
     }
 
@@ -1960,6 +2805,7 @@
       initTelegram();
       initModeChips();
       initTradeModal();
+      initFundModal();
       await initCategories();
 
 

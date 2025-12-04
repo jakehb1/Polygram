@@ -2,6 +2,32 @@
 // Fetches live markets from Polymarket Gamma API
 // Fetches markets from all categories using /tags endpoint
 
+// Simple in-memory cache with TTL (5 seconds for fast updates)
+const cache = new Map();
+const CACHE_TTL = 5000; // 5 seconds
+
+function getCacheKey(kind, sportType) {
+  return `${kind}_${sportType || 'all'}`;
+}
+
+function getCached(key) {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  cache.delete(key);
+  return null;
+}
+
+function setCache(key, data) {
+  cache.set(key, { data, timestamp: Date.now() });
+  // Clean up old cache entries (keep only last 10)
+  if (cache.size > 10) {
+    const firstKey = cache.keys().next().value;
+    cache.delete(firstKey);
+  }
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
@@ -18,6 +44,16 @@ module.exports = async (req, res) => {
   const minVolumeParsed = minVolumeProvided ? Number(req.query.minVolume) : 0;
   const minVolumeNum = Math.max(isNaN(minVolumeParsed) ? 0 : minVolumeParsed, 0);
   // sportType: "games" or "props" - used to filter sports markets
+
+  // Check cache first (only for reasonable limits to avoid caching huge responses)
+  if (limitNum <= 1000) {
+    const cacheKey = getCacheKey(kind, sportType);
+    const cached = getCached(cacheKey);
+    if (cached) {
+      console.log("[markets] Returning cached data for:", cacheKey);
+      return res.status(200).json(cached);
+    }
+  }
 
   const GAMMA_API = "https://gamma-api.polymarket.com";
   
@@ -135,8 +171,8 @@ module.exports = async (req, res) => {
       
       // Strategy 1: Fetch events directly (this gives us game structure)
       try {
-        // Increase limit to get more events
-        const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=2000`;
+        // Reduce limit for faster initial load - we can fetch more if needed
+        const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=500`;
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
@@ -341,15 +377,21 @@ module.exports = async (req, res) => {
       }
       
       // Strategy 2: Get tag IDs from /sports endpoint (more reliable for NFL)
-      // Focus only on NFL for now
+      // Fetch both endpoints in parallel for faster loading
       let categoryTagIds = [];
       let categoryTagId = null;
       
       // Only process NFL games for now
       if (kind.toLowerCase() === "nfl") {
-        try {
-          const sportsResp = await fetch(`${GAMMA_API}/sports`);
-          if (sportsResp.ok) {
+        // Fetch both endpoints in parallel
+        const [sportsResp, tagsResp] = await Promise.all([
+          fetch(`${GAMMA_API}/sports`).catch(() => ({ ok: false })),
+          fetch(`${GAMMA_API}/tags`).catch(() => ({ ok: false }))
+        ]);
+        
+        // Process /sports endpoint
+        if (sportsResp.ok) {
+          try {
             const sports = await sportsResp.json();
             if (Array.isArray(sports)) {
               // Find NFL sport entry
@@ -366,17 +408,14 @@ module.exports = async (req, res) => {
                 console.log("[markets] Found NFL tag IDs from /sports endpoint:", categoryTagIds);
               }
             }
+          } catch (e) {
+            console.log("[markets] Error parsing /sports:", e.message);
           }
-        } catch (e) {
-          console.log("[markets] Error fetching /sports:", e.message);
         }
-      }
-      
-      // Fallback: try to get tag ID from /tags endpoint
-      if (categoryTagIds.length === 0 && !categoryTagId) {
-        try {
-          const tagsResp = await fetch(`${GAMMA_API}/tags`);
-          if (tagsResp.ok) {
+        
+        // Fallback: try to get tag ID from /tags endpoint
+        if (categoryTagIds.length === 0 && !categoryTagId && tagsResp.ok) {
+          try {
             const tags = await tagsResp.json();
             if (Array.isArray(tags)) {
               // Find tag matching the sports subcategory
@@ -390,61 +429,57 @@ module.exports = async (req, res) => {
                 console.log("[markets] Found tag ID from /tags endpoint:", categoryTagId);
               }
             }
+          } catch (e) {
+            console.log("[markets] Error parsing /tags:", e.message);
           }
-        } catch (e) {
-          console.log("[markets] Error fetching tags:", e.message);
         }
       }
       
       // Strategy 3: For NFL games, use multiple approaches to find game markets
       // Since tag-based queries return props, we need to search more broadly
       if (kind.toLowerCase() === "nfl" && isGamesOnly) {
-        // Approach 0: Query by NFL series ID first (most direct)
-        try {
-          const seriesEventsUrl = `${GAMMA_API}/events?series=10187&closed=false&order=id&ascending=false&limit=2000`;
-          const seriesEventsResp = await fetch(seriesEventsUrl);
-          if (seriesEventsResp.ok) {
-            const seriesEvents = await seriesEventsResp.json();
-            if (Array.isArray(seriesEvents)) {
-              console.log("[markets] Found", seriesEvents.length, "events in NFL series");
-              // Process these events (will be handled in Approach 1 below)
-            }
-          }
-        } catch (e) {
-          console.log("[markets] Error fetching NFL series events:", e.message);
-        }
+        // Approach 0: Query by NFL series ID first (most direct) - now handled in parallel queries
         
         // Approach 1: Search all events for NFL game events
         // Following docs: /events endpoint is most efficient (events contain their markets)
         // Use order=id&ascending=false to get newest events first
         try {
-          // Try multiple event queries to be comprehensive
+          // Try multiple event queries in parallel for faster loading
           const eventQueries = [
-            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=2000`,
-            `${GAMMA_API}/events?series=10187&closed=false&order=id&ascending=false&limit=2000`,
-            `${GAMMA_API}/events?tag_id=1&closed=false&order=id&ascending=false&limit=2000`,
-            `${GAMMA_API}/events?tag_id=450&closed=false&order=id&ascending=false&limit=2000`,
-            `${GAMMA_API}/events?tag_id=100639&closed=false&order=id&ascending=false&limit=2000`,
+            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=500`,
+            `${GAMMA_API}/events?series=10187&closed=false&order=id&ascending=false&limit=500`,
+            `${GAMMA_API}/events?tag_id=1&closed=false&order=id&ascending=false&limit=500`,
+            `${GAMMA_API}/events?tag_id=450&closed=false&order=id&ascending=false&limit=500`,
+            `${GAMMA_API}/events?tag_id=100639&closed=false&order=id&ascending=false&limit=500`,
           ];
           
-          let allEvents = [];
-          for (const eventUrl of eventQueries) {
+          // Fetch all queries in parallel
+          const eventPromises = eventQueries.map(async (eventUrl) => {
             try {
               const eventResp = await fetch(eventUrl);
               if (eventResp.ok) {
                 const events = await eventResp.json();
-                if (Array.isArray(events)) {
-                  // Merge events, avoiding duplicates
-                  for (const event of events) {
-                    const existing = allEvents.find(e => e.id === event.id);
-                    if (!existing) {
-                      allEvents.push(event);
-                    }
-                  }
-                }
+                return Array.isArray(events) ? events : [];
               }
+              return [];
             } catch (e) {
               console.log("[markets] Error fetching events from", eventUrl, ":", e.message);
+              return [];
+            }
+          });
+          
+          // Wait for all queries to complete in parallel
+          const eventResults = await Promise.all(eventPromises);
+          
+          // Merge events, avoiding duplicates
+          let allEvents = [];
+          const eventIds = new Set();
+          for (const events of eventResults) {
+            for (const event of events) {
+              if (!eventIds.has(event.id)) {
+                eventIds.add(event.id);
+                allEvents.push(event);
+              }
             }
           }
           
@@ -1176,10 +1211,18 @@ module.exports = async (req, res) => {
 
     console.log("[markets] Returning", transformed.length, "for:", kind);
 
-    return res.status(200).json({ 
+    const response = { 
       markets: transformed,
       meta: { total: transformed.length, kind }
-    });
+    };
+
+    // Cache the response (only for reasonable limits)
+    if (limitNum <= 1000) {
+      const cacheKey = getCacheKey(kind, sportType);
+      setCache(cacheKey, response);
+    }
+
+    return res.status(200).json(response);
     
   } catch (err) {
     console.error("[markets] Error:", err.message);

@@ -45,6 +45,13 @@ module.exports = async (req, res) => {
       });
     }
 
+    // Get cached balances from user_balances table
+    const { data: cachedBalance } = await supabase
+      .from("user_balances")
+      .select("usdc_available, usdc_locked, sol_balance")
+      .eq("user_id", String(telegramId))
+      .single();
+
     // Get on-chain USDC balance
     let usdcBalance = 0;
     try {
@@ -57,9 +64,30 @@ module.exports = async (req, res) => {
 
       const rawBalance = await usdc.balanceOf(wallet.polygon_address);
       usdcBalance = Number(formatUnits(rawBalance, 6));
+      
+      // Update cached balance if on-chain balance is different
+      if (cachedBalance && cachedBalance.usdc_available !== usdcBalance) {
+        await supabase
+          .from("user_balances")
+          .upsert({
+            user_id: String(telegramId),
+            usdc_available: usdcBalance,
+            usdc_locked: cachedBalance.usdc_locked || 0,
+            sol_balance: cachedBalance.sol_balance || 0,
+          }, {
+            onConflict: 'user_id'
+          });
+      }
     } catch (e) {
       console.error("On-chain balance error:", e);
+      // Fallback to cached balance if on-chain check fails
+      if (cachedBalance) {
+        usdcBalance = Number(cachedBalance.usdc_available || 0);
+      }
     }
+
+    // Get SOL balance (from cache for now, can add on-chain check later)
+    const solBalance = cachedBalance ? Number(cachedBalance.sol_balance || 0) : 0;
 
     // Get positions value from DB
     const { data: positions } = await supabase
@@ -72,6 +100,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
       usdc: usdcBalance,
+      sol: solBalance,
       positions: positionsValue,
       total: usdcBalance + positionsValue,
       walletStatus: {
