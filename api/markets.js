@@ -421,17 +421,41 @@ module.exports = async (req, res) => {
                                'cin', 'jax', 'ind', 'pit', 'nyj', 'den', 'lv', 'lac', 'ne', 'ten', 'atl', 
                                'no', 'tb', 'car', 'ari', 'sea', 'was', 'nyg', 'phi', 'chi', 'min'];
               
+              console.log("[markets] Searching", allEvents.length, "events for NFL games");
+              let checkedCount = 0;
+              let matchedCount = 0;
+              
               // Find events that look like NFL games
               for (const event of allEvents) {
                 if (!event.markets || !Array.isArray(event.markets)) continue;
                 
                 const eventTitle = (event.title || "").toLowerCase();
                 const eventSlug = (event.slug || "").toLowerCase();
-                const eventTags = (event.tags || []).map(t => (t.slug || t.label || "").toLowerCase());
+                const eventTags = (event.tags || []).map(t => typeof t === 'string' ? t.toLowerCase() : (t.slug || t.label || "").toLowerCase());
                 
                 // Check if event is NFL-related
                 const hasNflTag = eventTags.some(t => t.includes('nfl'));
-                const hasNflTeam = nflTeams.some(team => eventTitle.includes(team) || eventSlug.includes(team));
+                // Check if event title/slug contains NFL teams (use word boundaries to avoid false positives)
+                const hasNflTeam = nflTeams.some(team => {
+                  // For abbreviations, check for exact match or with word boundaries
+                  if (team.length <= 3) {
+                    return new RegExp(`\\b${team}\\b`, 'i').test(eventTitle) || new RegExp(`\\b${team}\\b`, 'i').test(eventSlug);
+                  }
+                  return eventTitle.includes(team) || eventSlug.includes(team);
+                });
+                
+                // Check if markets contain NFL teams
+                const marketsHaveTeams = event.markets.some(m => {
+                  const q = (m.question || "").toLowerCase();
+                  const s = (m.slug || "").toLowerCase();
+                  return nflTeams.some(team => {
+                    if (team.length <= 3) {
+                      return new RegExp(`\\b${team}\\b`, 'i').test(q) || new RegExp(`\\b${team}\\b`, 'i').test(s);
+                    }
+                    return q.includes(team) || s.includes(team);
+                  });
+                });
+                
                 const hasWeek = eventTitle.includes('week') || eventSlug.includes('week') || eventTags.some(t => t.includes('week'));
                 const hasVs = eventTitle.includes(" vs ") || eventSlug.includes(" vs ") || eventTitle.includes(" v ");
                 
@@ -442,34 +466,23 @@ module.exports = async (req, res) => {
                 });
                 
                 // Include if it looks like an NFL game event
-                if ((hasNflTag || hasNflTeam) && (hasWeek || hasVs || hasGameMarkets)) {
+                // Be more permissive - include if markets have teams OR event has teams/tags
+                if ((hasNflTag || hasNflTeam || marketsHaveTeams) && (hasWeek || hasVs || hasGameMarkets || event.markets.length >= 2)) {
+                  checkedCount++;
                   // Exclude if it's clearly a prop event
                   const isPropEvent = eventTitle.includes("mvp") || eventTitle.includes("leader") || 
                                      (eventTitle.includes("champion") && !eventTitle.includes("week")) ||
                                      (eventTitle.includes("super bowl") && !eventTitle.includes("week"));
                   
                   if (!isPropEvent) {
+                    matchedCount++;
+                    console.log("[markets] Found NFL game event:", eventTitle, "with", event.markets.length, "markets");
+                    // If this is a game event, include ALL markets that aren't clearly props
+                    // Markets might be structured as team names (e.g., "DAL", "DET", "Cowboys", "Lions")
                     for (const market of event.markets) {
                       if (!market.closed && market.active !== false) {
                         const question = (market.question || "").toLowerCase();
                         const slug = (market.slug || "").toLowerCase();
-                        
-                        // WHITELIST: Only include markets with clear game indicators
-                        const hasGameIndicator = 
-                          question.includes(" vs ") ||
-                          question.includes(" v ") ||
-                          question.includes("moneyline") ||
-                          question.includes("spread") ||
-                          question.includes("total") ||
-                          question.includes("o/u") ||
-                          question.includes("over/under") ||
-                          question.includes("over ") ||
-                          question.includes("under ") ||
-                          slug.includes("moneyline") ||
-                          slug.includes("spread") ||
-                          slug.includes("total") ||
-                          slug.includes("o/u") ||
-                          slug.includes("over-under");
                         
                         // BLACKLIST: Exclude all prop markets
                         const isWillQuestion = question.includes("will ");
@@ -492,7 +505,7 @@ module.exports = async (req, res) => {
                         
                         const isDefinitelyProp = 
                           isPlayerProp ||
-                          (!hasGameIndicator && isWillQuestion) ||
+                          (!hasGameMarkets && !hasVs && isWillQuestion) || // "Will" questions in non-game events are props
                           question.includes("rookie of the year") ||
                           question.includes("offensive rookie") ||
                           question.includes("defensive rookie") ||
@@ -509,8 +522,9 @@ module.exports = async (req, res) => {
                           slug.includes("mvp") ||
                           slug.includes("leader");
                         
-                        // Only include if it has game indicators AND is not a prop
-                        if (hasGameIndicator && !isDefinitelyProp) {
+                        // Include all markets from game events that aren't props
+                        // This allows team-name markets (e.g., "DAL", "DET", "Cowboys", "Lions") to be included
+                        if (!isDefinitelyProp) {
                           const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
                           if (!existing) {
                             markets.push({
@@ -533,6 +547,7 @@ module.exports = async (req, res) => {
                   }
                 }
               }
+              console.log("[markets] Checked", checkedCount, "potential game events, matched", matchedCount, "events, found", markets.length, "markets");
               console.log("[markets] Added NFL game markets from events search");
             }
           }
