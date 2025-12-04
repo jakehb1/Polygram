@@ -27,9 +27,18 @@ function decrypt(encryptedText, key) {
   return decrypted;
 }
 
-// Generate encryption key from environment or use a default (for MVP)
+// Generate encryption key from environment
+// CRITICAL: Must be set in production or wallets cannot be decrypted!
 function getEncryptionKey() {
-  return process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+  const key = process.env.ENCRYPTION_KEY || process.env.WALLET_ENCRYPTION_KEY;
+  if (!key) {
+    throw new Error('ENCRYPTION_KEY environment variable is required. Set it in Vercel environment variables.');
+  }
+  // Ensure key is 64 hex characters (32 bytes)
+  if (key.length !== 64) {
+    throw new Error('ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). Generate with: openssl rand -hex 32');
+  }
+  return key;
 }
 
 module.exports = async (req, res) => {
