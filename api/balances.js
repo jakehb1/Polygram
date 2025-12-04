@@ -15,14 +15,23 @@ module.exports = async (req, res) => {
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: "Database not configured" });
-  }
+  const hasSupabase = SUPABASE_URL && SUPABASE_SERVICE_KEY;
 
   const telegramId = req.query.telegram_id || req.query.telegramId;
   if (!telegramId) {
     return res.status(400).json({ error: "Missing telegram_id" });
+  }
+
+  // If Supabase not configured, return zero balances
+  if (!hasSupabase) {
+    return res.status(200).json({
+      success: true,
+      usdc: 0,
+      sol: 0,
+      positions: 0,
+      total: 0,
+      walletStatus: { exists: false }
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);

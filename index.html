@@ -399,27 +399,6 @@
       color: var(--text);
       border-color: var(--green);
     }
-    .fund-wallet-btn {
-      background: var(--accent);
-      border: none;
-      border-radius: 8px;
-      padding: 6px 12px;
-      cursor: pointer;
-      color: white;
-      font-size: 12px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      flex-shrink: 0;
-    }
-    .fund-wallet-btn:hover {
-      opacity: 0.9;
-    }
-    .fund-wallet-btn:active {
-      transform: scale(0.95);
-    }
     .wallet-status {
       background: var(--accent);
       color: white;
@@ -1321,9 +1300,6 @@
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
             </button>
-            <button class="fund-wallet-btn" id="fundSolQuickBtn" title="Fund SOL wallet">
-              Fund
-            </button>
           </div>
         </div>
         <div class="wallet-row">
@@ -1338,9 +1314,6 @@
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
-            </button>
-            <button class="fund-wallet-btn" id="fundUsdcQuickBtn" title="Fund USDC wallet">
-              Fund
             </button>
           </div>
         </div>
@@ -1757,24 +1730,6 @@
         setupCopyButton('copyUsdcBtn', wallet.polygon);
         setupClickableAddress('solWalletAddress', wallet.solana);
         setupClickableAddress('usdcWalletAddress', wallet.polygon);
-        
-        // Setup quick fund buttons (only once)
-        const fundSolBtn = document.getElementById('fundSolQuickBtn');
-        const fundUsdcBtn = document.getElementById('fundUsdcQuickBtn');
-        
-        if (fundSolBtn && !fundSolBtn.dataset.listenerAdded) {
-          fundSolBtn.addEventListener('click', () => {
-            openFundModal('sol');
-          });
-          fundSolBtn.dataset.listenerAdded = 'true';
-        }
-        
-        if (fundUsdcBtn && !fundUsdcBtn.dataset.listenerAdded) {
-          fundUsdcBtn.addEventListener('click', () => {
-            openFundModal('usdc');
-          });
-          fundUsdcBtn.dataset.listenerAdded = 'true';
-        }
         
         // Load balance from Supabase and on-chain
         await loadBalance();
