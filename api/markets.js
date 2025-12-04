@@ -155,17 +155,56 @@ module.exports = async (req, res) => {
               // Match if either tags or text match
               const matches = tagMatches || textMatches;
               
+              // For games only, also check if event title/slug looks like a game (has team names, vs, etc.)
+              if (isGamesOnly && matches) {
+                const eventTitleLower = eventTitle;
+                const eventSlugLower = eventSlug;
+                // Game events typically have "vs", team names, or game-related terms
+                const looksLikeGame = 
+                  eventTitleLower.includes(" vs ") ||
+                  eventTitleLower.includes(" v ") ||
+                  eventTitleLower.includes("week ") ||
+                  eventSlugLower.includes("vs") ||
+                  eventSlugLower.includes("week");
+                
+                // Skip events that don't look like games (e.g., "NFL MVP", "NFL Leader", etc.)
+                if (!looksLikeGame && (eventTitleLower.includes("mvp") || eventTitleLower.includes("leader") || eventTitleLower.includes("champion") || eventTitleLower.includes("award"))) {
+                  continue;
+                }
+              }
+              
               if (matches && event.markets && Array.isArray(event.markets)) {
                 // For games only, filter to actual game markets (not props)
                 if (isGamesOnly) {
                   // Check if this event has game-like markets (vs, moneyline, spread)
+                  // Be very strict - must have actual game markets, not props
                   const hasGameMarkets = event.markets.some(m => {
                     const question = (m.question || "").toLowerCase();
-                    return question.includes(" vs ") || 
-                           question.includes(" v ") ||
-                           question.includes("moneyline") ||
-                           question.includes("spread") ||
-                           question.includes("total") && !question.includes("player");
+                    const slug = (m.slug || "").toLowerCase();
+                    
+                    // Must be a clear game market
+                    const isGameMarket = 
+                      question.includes(" vs ") || 
+                      question.includes(" v ") ||
+                      question.includes("moneyline") ||
+                      question.includes("ml") ||
+                      question.includes("spread") ||
+                      (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
+                      slug.includes("moneyline") ||
+                      slug.includes("spread") ||
+                      slug.includes("total");
+                    
+                    // Must NOT be a prop
+                    const isProp = 
+                      question.includes("will ") ||
+                      question.includes("leader") ||
+                      question.includes("mvp") ||
+                      question.includes("award") ||
+                      question.includes("champion") ||
+                      question.includes("winner") ||
+                      question.includes("prop");
+                    
+                    return isGameMarket && !isProp;
                   });
                   
                   if (!hasGameMarkets) {
@@ -177,12 +216,38 @@ module.exports = async (req, res) => {
                 // Extract all markets from this event (game)
                 for (const market of event.markets) {
                   if (!market.closed && market.active !== false) {
-                    // For games only, filter out prop markets
+                    // For games only, filter out prop markets - be very strict
                     if (isGamesOnly) {
                       const question = (market.question || "").toLowerCase();
-                      // Skip obvious props
-                      if (question.includes("will ") && 
-                          (question.includes("win") || question.includes("mvp") || question.includes("award"))) {
+                      const slug = (market.slug || "").toLowerCase();
+                      
+                      // Only include markets that are clearly game markets
+                      const isGameMarket = 
+                        question.includes(" vs ") ||
+                        question.includes(" v ") ||
+                        question.includes("moneyline") ||
+                        question.includes("ml") ||
+                        question.includes("spread") ||
+                        (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
+                        slug.includes("moneyline") ||
+                        slug.includes("spread") ||
+                        slug.includes("total");
+                      
+                      // Exclude all props - be very aggressive
+                      const isProp = 
+                        question.includes("will ") ||
+                        question.includes("leader") ||
+                        question.includes("mvp") ||
+                        question.includes("award") ||
+                        question.includes("champion") ||
+                        question.includes("winner") ||
+                        question.includes("prop") ||
+                        question.includes("over/under") && question.includes("player") ||
+                        slug.includes("prop") ||
+                        slug.includes("leader") ||
+                        slug.includes("mvp");
+                      
+                      if (!isGameMarket || isProp) {
                         continue;
                       }
                     }
@@ -201,6 +266,8 @@ module.exports = async (req, res) => {
                         eventImage: event.image || event.icon,
                         eventVolume: event.volume,
                         eventLiquidity: event.liquidity,
+                        // Include event tags for week filtering
+                        eventTags: event.tags || [],
                       });
                     }
                   }
@@ -281,19 +348,34 @@ module.exports = async (req, res) => {
                           const event = marketIdToEvent.get(marketId);
                           const question = (market.question || "").toLowerCase();
                           
-                          // Additional filter: only include game markets (not props)
-                          // Game markets have "vs", "moneyline", "spread", or "total" in question
+                          // Additional filter: only include game markets (not props) - be very strict
+                          const slug = (market.slug || "").toLowerCase();
+                          
+                          // Only include markets that are clearly game markets
                           const isGameMarket = 
                             question.includes(" vs ") ||
                             question.includes(" v ") ||
                             question.includes("moneyline") ||
+                            question.includes("ml") ||
                             question.includes("spread") ||
-                            (question.includes("total") && !question.includes("player"));
+                            (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
+                            slug.includes("moneyline") ||
+                            slug.includes("spread") ||
+                            slug.includes("total");
                           
-                          // Exclude obvious props
+                          // Exclude all props - be very aggressive
                           const isProp = 
-                            question.includes("will ") && 
-                            (question.includes("win") || question.includes("mvp") || question.includes("award") || question.includes("leader"));
+                            question.includes("will ") ||
+                            question.includes("leader") ||
+                            question.includes("mvp") ||
+                            question.includes("award") ||
+                            question.includes("champion") ||
+                            question.includes("winner") ||
+                            question.includes("prop") ||
+                            question.includes("over/under") && question.includes("player") ||
+                            slug.includes("prop") ||
+                            slug.includes("leader") ||
+                            slug.includes("mvp");
                           
                           if (isGameMarket && !isProp) {
                             markets.push({
@@ -531,9 +613,42 @@ module.exports = async (req, res) => {
     if (sportType === "games" && isSportsSubcategory) {
       const beforeFilter = markets.length;
       markets = markets.filter(m => {
-        // Only include markets that have eventId (part of an actual game event)
-        // or have event-related fields indicating they're game markets
-        return m.eventId || m.eventTitle || m.eventSlug || m.eventTicker;
+        // Must have eventId (part of an actual game event)
+        if (!m.eventId && !m.eventTitle && !m.eventSlug && !m.eventTicker) {
+          return false;
+        }
+        
+        // Additional strict filtering for game markets only
+        const question = (m.question || "").toLowerCase();
+        const slug = (m.slug || "").toLowerCase();
+        
+        // Only include markets that are clearly game markets
+        const isGameMarket = 
+          question.includes(" vs ") ||
+          question.includes(" v ") ||
+          question.includes("moneyline") ||
+          question.includes("ml") ||
+          question.includes("spread") ||
+          (question.includes("total") && !question.includes("player") && !question.includes("leader")) ||
+          slug.includes("moneyline") ||
+          slug.includes("spread") ||
+          slug.includes("total");
+        
+        // Exclude all props - be very aggressive
+        const isProp = 
+          question.includes("will ") ||
+          question.includes("leader") ||
+          question.includes("mvp") ||
+          question.includes("award") ||
+          question.includes("champion") ||
+          question.includes("winner") ||
+          question.includes("prop") ||
+          (question.includes("over/under") && question.includes("player")) ||
+          slug.includes("prop") ||
+          slug.includes("leader") ||
+          slug.includes("mvp");
+        
+        return isGameMarket && !isProp;
       });
       console.log("[markets] After games-only filter:", markets.length, "(removed", beforeFilter - markets.length, "non-game markets)");
     }
