@@ -866,6 +866,34 @@
     .event-header.collapsed .event-collapse-icon {
       transform: rotate(-90deg);
     }
+    .event-primary-prices {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+      margin-right: 8px;
+    }
+    .event-price-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    .event-price-btn:hover {
+      opacity: 0.8;
+    }
+    .event-price-btn-1 {
+      background: var(--accent);
+      color: white;
+    }
+    .event-price-btn-2 {
+      background: var(--bg-secondary);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
     .event-markets {
       padding: 0;
       max-height: 2000px;
@@ -1353,7 +1381,7 @@
         </div>
       </div>
       <div class="wallet-status" id="walletStatusBar">Checking status...</div>
-    </div>
+      </div>
 
     <!-- Positions Card -->
     <div class="card" id="positionsCard" style="display: none;">
@@ -1559,7 +1587,7 @@
           state.telegramId = String(userId);
           console.log('Telegram user ID:', state.telegramId);
           console.log('Telegram user data:', tg.initDataUnsafe?.user);
-        } else {
+      } else {
           // Fallback for testing/development
           const demoId = localStorage.getItem('demo_telegram_id') || `demo_${Date.now()}`;
           localStorage.setItem('demo_telegram_id', demoId);
@@ -1929,9 +1957,9 @@
 
     async function loadBalance() {
       if (!state.wallet) {
-        document.getElementById('usdcBalance').textContent = '$0.00';
-        document.getElementById('positionsValue').textContent = '$0.00';
-        document.getElementById('totalBalance').textContent = '$0.00';
+      document.getElementById('usdcBalance').textContent = '$0.00';
+      document.getElementById('positionsValue').textContent = '$0.00';
+      document.getElementById('totalBalance').textContent = '$0.00';
         return;
       }
 
@@ -2207,6 +2235,21 @@
           );
           const weekLabel = weekTag ? (typeof weekTag === 'string' ? weekTag : (weekTag.label || weekTag.slug || '')) : '';
           
+          // Find primary moneyline market (the main game outcome)
+          const moneylineMarket = event.markets.find(m => {
+            const q = (m.question || '').toLowerCase();
+            return q.includes('moneyline') || q.includes('ml') || 
+                   (q.includes(' vs ') && !q.includes('spread') && !q.includes('total') && !q.includes('o/u'));
+          }) || event.markets[0];
+          
+          // Get primary prices for moneyline (first two outcomes)
+          const primaryPrices = moneylineMarket?.outcomePrices || [];
+          const primaryOutcomes = moneylineMarket?.outcomes || [];
+          const price1 = primaryPrices[0] !== undefined ? (parseFloat(primaryPrices[0]) * 100).toFixed(0) + '¢' : '--';
+          const price2 = primaryPrices[1] !== undefined ? (parseFloat(primaryPrices[1]) * 100).toFixed(0) + '¢' : '--';
+          const outcome1 = primaryOutcomes[0] || 'Yes';
+          const outcome2 = primaryOutcomes[1] || 'No';
+          
           return `
             <div class="event-group collapsed" data-event-id="${event.eventId}">
               <div class="event-header collapsed" data-collapse-target="${event.eventId}">
@@ -2221,6 +2264,20 @@
                     <span>${event.markets.length} market${event.markets.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
+                <div class="event-primary-prices">
+                  ${primaryPrices.length >= 2 ? `
+                    <button class="event-price-btn event-price-btn-1" 
+                            data-market-id="${moneylineMarket?.id}" 
+                            data-outcome-index="0">
+                      ${outcome1} ${price1}
+                    </button>
+                    <button class="event-price-btn event-price-btn-2" 
+                            data-market-id="${moneylineMarket?.id}" 
+                            data-outcome-index="1">
+                      ${outcome2} ${price2}
+                    </button>
+                  ` : ''}
+                </div>
                 <div class="event-collapse-icon">▼</div>
               </div>
               <div class="event-markets" data-event-markets="${event.eventId}">
@@ -2234,11 +2291,11 @@
                       <div class="outcome-label">${m.question}</div>
                       <div class="outcome-buttons">
                         ${outcomes.map((outcome, idx) => {
-                          const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) : '--';
+                          const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) + '¢' : '--';
                           const isYes = outcome.toLowerCase() === 'yes' || idx === 0;
                           return `
                             <div class="outcome-button-group">
-                              <span class="outcome-price">${price}%</span>
+                              <span class="outcome-price">${price}</span>
                               <button class="outcome-btn ${isYes ? 'outcome-yes' : 'outcome-no'}" 
                                       data-market-id="${m.id}" 
                                       data-outcome-index="${idx}">
@@ -2257,14 +2314,14 @@
         }).join('');
       } else {
         // Render as flat list (original behavior)
-        list.innerHTML = markets.map(m => {
-          const prices = m.outcomePrices || [];
+      list.innerHTML = markets.map(m => {
+        const prices = m.outcomePrices || [];
           const outcomes = m.outcomes || ["Yes", "No"];
-          const vol = m.volume24hr || m.volume || 0;
+        const vol = m.volume24hr || m.volume || 0;
           const imgUrl = m.image || m.eventImage || m.icon || '';
           const hasImage = imgUrl && imgUrl.trim() !== '';
-          
-          return `
+        
+        return `
             <div class="market-card" data-id="${m.id}">
               <div class="market-card-header">
                 ${hasImage ? `<img class="market-image" src="${imgUrl}" alt="" onerror="this.classList.add('hidden')" />` : ''}
@@ -2272,34 +2329,62 @@
               </div>
               <div class="market-outcomes">
                 ${outcomes.map((outcome, idx) => {
-                  const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) : '--';
+                  const price = prices[idx] !== undefined ? (parseFloat(prices[idx]) * 100).toFixed(0) + '¢' : '--';
                   const isYes = outcome.toLowerCase() === 'yes' || idx === 0;
                   return `
                     <div class="outcome-button-group">
-                      <span class="outcome-price">${price}%</span>
+                      <span class="outcome-price">${price}</span>
                       <button class="outcome-btn ${isYes ? 'outcome-yes' : 'outcome-no'}" 
                               data-market-id="${m.id}" 
                               data-outcome-index="${idx}">
                         ${outcome}
                       </button>
-                    </div>
+            </div>
                   `;
                 }).join('')}
               </div>
               <div class="market-card-footer">
                 <span class="market-volume">${formatVolume(vol)} Vol.</span>
                 <span class="market-icon">🎁</span>
-              </div>
             </div>
-          `;
-        }).join('');
+          </div>
+        `;
+      }).join('');
       }
 
+      // Add click handlers for event price buttons
+      list.querySelectorAll('.event-price-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          hapticFeedback('light');
+          const marketId = btn.dataset.marketId;
+          const outcomeIndex = parseInt(btn.dataset.outcomeIndex, 10);
+          const market = markets.find(m => String(m.id) === String(marketId));
+          if (market) {
+            openTradeModal(market, outcomeIndex);
+          }
+        });
+      });
+      
+      // Add click handlers for event price buttons
+      list.querySelectorAll('.event-price-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          hapticFeedback('light');
+          const marketId = btn.dataset.marketId;
+          const outcomeIndex = parseInt(btn.dataset.outcomeIndex, 10);
+          const market = markets.find(m => String(m.id) === String(marketId));
+          if (market) {
+            openTradeModal(market, outcomeIndex);
+          }
+        });
+      });
+      
       // Add click handlers for event header collapse/expand
       list.querySelectorAll('.event-header').forEach(header => {
         header.addEventListener('click', (e) => {
           // Don't collapse if clicking on interactive elements
-          if (e.target.closest('.outcome-btn') || e.target.closest('button') || e.target.closest('a')) {
+          if (e.target.closest('.outcome-btn') || e.target.closest('.event-price-btn') || e.target.closest('button') || e.target.closest('a')) {
             return;
           }
           
@@ -2343,7 +2428,7 @@
             hapticFeedback('light');
             const itemId = String(item.dataset.id);
             const market = markets.find(m => String(m.id) === itemId || String(m.conditionId) === itemId);
-            if (market) openTradeModal(market);
+          if (market) openTradeModal(market);
           }
         });
       });
@@ -2355,7 +2440,7 @@
     function openTradeModal(market) {
       hapticFeedback('medium');
       state.selectedMarket = market;
-      
+
       // Get all outcomes and prices
       const outcomes = market.outcomes || ["Yes", "No"];
       const prices = market.outcomePrices || [];

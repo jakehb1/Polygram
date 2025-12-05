@@ -257,8 +257,8 @@ module.exports = async (req, res) => {
       
       // Strategy 1: Fetch events directly (this gives us game structure)
       try {
-        // Reduce limit for faster initial load - we can fetch more if needed
-        const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=500`;
+        // Increase limit to get all NFL games
+        const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=1000`;
         const eventsResp = await fetch(eventsUrl);
         if (eventsResp.ok) {
           const events = await eventsResp.json();
@@ -521,13 +521,13 @@ module.exports = async (req, res) => {
         // Following docs: /events endpoint is most efficient (events contain their markets)
         // Use order=id&ascending=false to get newest events first
         try {
-          // Try multiple event queries in parallel for faster loading
+          // Try multiple event queries in parallel for faster loading - increase limits to get all games
           const eventQueries = [
-            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=500`,
-            `${GAMMA_API}/events?series=10187&closed=false&order=id&ascending=false&limit=500`,
-            `${GAMMA_API}/events?tag_id=1&closed=false&order=id&ascending=false&limit=500`,
-            `${GAMMA_API}/events?tag_id=450&closed=false&order=id&ascending=false&limit=500`,
-            `${GAMMA_API}/events?tag_id=100639&closed=false&order=id&ascending=false&limit=500`,
+            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=1000`,
+            `${GAMMA_API}/events?series=10187&closed=false&order=id&ascending=false&limit=1000`,
+            `${GAMMA_API}/events?tag_id=1&closed=false&order=id&ascending=false&limit=1000`,
+            `${GAMMA_API}/events?tag_id=450&closed=false&order=id&ascending=false&limit=1000`,
+            `${GAMMA_API}/events?tag_id=100639&closed=false&order=id&ascending=false&limit=1000`,
           ];
           
           // Fetch all queries in parallel
