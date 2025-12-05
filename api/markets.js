@@ -94,77 +94,137 @@ module.exports = async (req, res) => {
     const isSportsSubcategory = sportsSubcategories.includes(kind.toLowerCase());
     
     if (isCategory && kind !== "sports" && !isSportsSubcategory) {
-      // Fetch markets for a specific category
+      // Fetch markets for a specific category (Finance, Politics, Crypto, etc.)
       console.log("[markets] Fetching markets for category:", kind);
       
-      // Get tag ID for this category
+      // Get tag IDs for this category (may have multiple tags)
+      let categoryTagIds = [];
       let categoryTagId = null;
+      
       try {
         const tagsResp = await fetch(`${GAMMA_API}/tags`);
         if (tagsResp.ok) {
           const tags = await tagsResp.json();
           if (Array.isArray(tags)) {
-            // Find tag matching the category slug
-            const categoryTag = tags.find(tag => {
+            // Find all tags matching the category (exact match or contains)
+            const categoryTags = tags.filter(tag => {
               const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
-              return slug === kind.toLowerCase() || slug.includes(kind.toLowerCase());
+              const kindLower = kind.toLowerCase();
+              return slug === kindLower || slug.includes(kindLower) || kindLower.includes(slug);
             });
-            if (categoryTag && categoryTag.id) {
-              categoryTagId = categoryTag.id;
-              console.log("[markets] Found tag ID for category:", categoryTagId);
-            }
+            
+            categoryTagIds = categoryTags.map(tag => tag.id).filter(id => id);
+            categoryTagId = categoryTagIds[0]; // Use first as primary
+            console.log("[markets] Found tag IDs for category:", categoryTagIds);
           }
         }
       } catch (e) {
         console.log("[markets] Error fetching tags for category:", e.message);
       }
       
-      // Fetch markets for this category with higher limit
-      if (categoryTagId) {
+      // Strategy 1: Fetch markets directly by tag ID(s) with high limit
+      const tagIdsToUse = categoryTagIds.length > 0 ? categoryTagIds : (categoryTagId ? [categoryTagId] : []);
+      
+      if (tagIdsToUse.length > 0) {
+        // Fetch from all tag IDs in parallel for faster loading
+        const marketPromises = tagIdsToUse.map(async (tagId) => {
+          try {
+            const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&limit=5000`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const data = await resp.json();
+              return Array.isArray(data) ? data.filter(m => !m.closed && m.active !== false) : [];
+            }
+            return [];
+          } catch (e) {
+            console.log("[markets] Error fetching markets for tag", tagId, ":", e.message);
+            return [];
+          }
+        });
+        
         try {
-          // Fetch with high limit to get all markets in this category
-          const url = `${GAMMA_API}/markets?tag_id=${categoryTagId}&closed=false&limit=1000`;
+          const marketArrays = await Promise.all(marketPromises);
+          const allMarkets = marketArrays.flat();
+          markets.push(...allMarkets);
+          console.log("[markets] Fetched", allMarkets.length, "markets from tag IDs");
+        } catch (e) {
+          console.log("[markets] Error processing tag-based markets:", e.message);
+        }
+      }
+      
+      // Strategy 2: Also fetch from events endpoint (events contain their markets)
+      try {
+        const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=1000`;
+        const eventsResp = await fetch(eventsUrl);
+        if (eventsResp.ok) {
+          const events = await eventsResp.json();
+          if (Array.isArray(events)) {
+            for (const event of events) {
+              // Check if event matches this category
+              const eventTags = event.tags || [];
+              const eventMatchesCategory = categoryTagIds.length > 0 && eventTags.some(tag => {
+                const tagId = typeof tag === 'object' ? tag.id : tag;
+                return categoryTagIds.includes(tagId);
+              });
+              
+              // Also check event title/slug for category keywords
+              const eventTitle = (event.title || "").toLowerCase();
+              const eventSlug = (event.slug || "").toLowerCase();
+              const textMatches = eventTitle.includes(kind.toLowerCase()) || eventSlug.includes(kind.toLowerCase());
+              
+              if ((eventMatchesCategory || textMatches) && event.markets && Array.isArray(event.markets)) {
+                for (const market of event.markets) {
+                  if (!market.closed && market.active !== false) {
+                    const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
+                    if (!existing) {
+                      markets.push({
+                        ...market,
+                        eventId: event.id,
+                        eventTitle: event.title,
+                        eventSlug: event.slug,
+                        eventTicker: event.ticker,
+                        eventStartDate: event.startDate,
+                        eventEndDate: event.endDate,
+                        eventImage: event.image || event.icon,
+                        eventVolume: event.volume,
+                        eventLiquidity: event.liquidity,
+                        eventTags: event.tags || [],
+                      });
+                    }
+                  }
+                }
+              }
+            }
+            console.log("[markets] Added markets from events, total:", markets.length);
+          }
+        }
+      } catch (e) {
+        console.log("[markets] Error fetching events for category:", e.message);
+      }
+      
+      // Strategy 3: Fallback - fetch all markets and filter by tag (if we have tag IDs)
+      if (markets.length === 0 && categoryTagIds.length > 0) {
+        try {
+          const url = `${GAMMA_API}/markets?closed=false&limit=5000`;
           const resp = await fetch(url);
           if (resp.ok) {
             const data = await resp.json();
             if (Array.isArray(data)) {
-              markets = data.filter(m => !m.closed && m.active !== false);
+              const categoryMarkets = data.filter(m => {
+                if (m.closed || m.active === false) return false;
+                // Check if market has matching tag_id
+                const marketTags = m.tags || m.tagIds || [];
+                return (Array.isArray(marketTags) && marketTags.some(tagId => categoryTagIds.includes(tagId))) ||
+                       categoryTagIds.includes(m.tagId) || 
+                       categoryTagIds.includes(m.tag_id);
+              });
+              markets.push(...categoryMarkets);
+              console.log("[markets] Added", categoryMarkets.length, "markets from fallback search");
             }
           }
         } catch (e) {
-          console.log("[markets] Error fetching category markets:", e.message);
+          console.log("[markets] Error in fallback market search:", e.message);
         }
-      }
-      
-      // Also fetch general markets to ensure we get all markets in this category
-      try {
-        const url = `${GAMMA_API}/markets?closed=false&limit=1000`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (Array.isArray(data)) {
-            // Filter by category if we have a tag ID
-            if (categoryTagId) {
-              // Check if market has this tag
-              const categoryMarkets = data.filter(m => {
-                if (m.closed || m.active === false) return false;
-                // Check if market has matching tag_id in its tags array or tagId field
-                const marketTags = m.tags || m.tagIds || [];
-                // Fix operator precedence: properly group the OR conditions
-                // Check: (tags array includes tag) OR (tagId matches) OR (tag_id matches)
-                return (Array.isArray(marketTags) && marketTags.includes(categoryTagId)) ||
-                       m.tagId === categoryTagId || 
-                       m.tag_id === categoryTagId;
-              });
-              markets.push(...categoryMarkets);
-            } else {
-              // No specific category, add all active markets
-              markets.push(...data.filter(m => !m.closed && m.active !== false));
-            }
-          }
-        }
-      } catch (e) {
-        console.log("[markets] Error fetching general markets:", e.message);
       }
       
     } else if (isSportsSubcategory) {
