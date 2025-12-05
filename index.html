@@ -841,6 +841,40 @@
       gap: 12px;
       padding: 14px;
       border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .event-header:hover {
+      background: var(--card);
+    }
+    .event-header.collapsed {
+      border-bottom: none;
+    }
+    .event-collapse-icon {
+      margin-left: auto;
+      font-size: 18px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .event-header.collapsed .event-collapse-icon {
+      transform: rotate(-90deg);
+    }
+    .event-markets {
+      padding: 0;
+      max-height: 2000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+    .event-group.collapsed .event-markets {
+      max-height: 0;
+      padding: 0;
     }
     .event-image {
       width: 48px;
@@ -1742,7 +1776,21 @@
         
         if (solEl) solEl.textContent = 'Error loading';
         if (usdcEl) usdcEl.textContent = 'Error loading';
-        if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+        
+        // Show user-friendly error message
+        let errorMsg = 'Error loading wallet';
+        if (err.message) {
+          // Check if it's an encryption key error
+          if (err.message.includes('ENCRYPTION_KEY') || err.message.includes('encryption_key_error')) {
+            errorMsg = 'Server configuration error. Please contact support.';
+          } else if (err.message.includes('ENCRYPTION_KEY must be exactly 64')) {
+            errorMsg = 'Server configuration error. Please contact support.';
+          } else {
+            errorMsg = err.message.length > 50 ? err.message.substring(0, 50) + '...' : err.message;
+          }
+        }
+        
+        if (statusEl) statusEl.textContent = errorMsg;
       }
     }
 
@@ -2087,7 +2135,7 @@
           
           return `
             <div class="event-group" data-event-id="${event.eventId}">
-              <div class="event-header">
+              <div class="event-header" data-collapse-target="${event.eventId}">
                 ${hasImage ? `<img class="event-image" src="${eventImg}" alt="" onerror="this.classList.add('hidden')" />` : ''}
                 <div class="event-info">
                   <div class="event-title">
@@ -2099,8 +2147,9 @@
                     <span>${event.markets.length} market${event.markets.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
+                <div class="event-collapse-icon">▼</div>
               </div>
-              <div class="event-markets">
+              <div class="event-markets" data-event-markets="${event.eventId}">
                 ${event.markets.map(m => {
                   const prices = m.outcomePrices || [];
                   const outcomes = m.outcomes || ["Yes", "No"];
@@ -2171,6 +2220,32 @@
           `;
         }).join('');
       }
+
+      // Add click handlers for event header collapse/expand
+      list.querySelectorAll('.event-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+          // Don't collapse if clicking on interactive elements
+          if (e.target.closest('.outcome-btn') || e.target.closest('button') || e.target.closest('a')) {
+            return;
+          }
+          
+          hapticFeedback('light');
+          const eventId = header.dataset.collapseTarget;
+          const eventGroup = header.closest('.event-group');
+          
+          if (eventGroup) {
+            eventGroup.classList.toggle('collapsed');
+            header.classList.toggle('collapsed');
+          }
+        });
+      });
+      
+      // Prevent nested market clicks from collapsing
+      list.querySelectorAll('.event-markets .market-outcome-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+        });
+      });
 
       // Add click handlers for outcome buttons
       list.querySelectorAll('.outcome-btn').forEach(btn => {

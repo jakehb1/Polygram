@@ -32,11 +32,22 @@ function decrypt(encryptedText, key) {
 function getEncryptionKey() {
   const key = process.env.ENCRYPTION_KEY || process.env.WALLET_ENCRYPTION_KEY;
   if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is required. Set it in Vercel environment variables.');
+    const error = new Error('ENCRYPTION_KEY environment variable is required. Set it in Vercel environment variables.');
+    error.code = 'ENCRYPTION_KEY_MISSING';
+    throw error;
   }
   // Ensure key is 64 hex characters (32 bytes)
+  // Also check if it's valid hex
+  const hexRegex = /^[0-9a-fA-F]+$/;
   if (key.length !== 64) {
-    throw new Error('ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). Generate with: openssl rand -hex 32');
+    const error = new Error('ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). Generate with: openssl rand -hex 32');
+    error.code = 'ENCRYPTION_KEY_INVALID_LENGTH';
+    throw error;
+  }
+  if (!hexRegex.test(key)) {
+    const error = new Error('ENCRYPTION_KEY must contain only hexadecimal characters (0-9, a-f). Generate with: openssl rand -hex 32');
+    error.code = 'ENCRYPTION_KEY_INVALID_FORMAT';
+    throw error;
   }
   return key;
 }
@@ -173,6 +184,17 @@ module.exports = async (req, res) => {
 
   } catch (err) {
     console.error("[wallet] Error:", err);
+    
+    // Provide more helpful error messages
+    if (err.code === 'ENCRYPTION_KEY_MISSING' || err.code === 'ENCRYPTION_KEY_INVALID_LENGTH' || err.code === 'ENCRYPTION_KEY_INVALID_FORMAT') {
+      return res.status(500).json({ 
+        error: "encryption_key_error", 
+        message: err.message,
+        code: err.code,
+        help: "Generate a valid key with: openssl rand -hex 32"
+      });
+    }
+    
     return res.status(500).json({ 
       error: "wallet_creation_failed", 
       message: err.message 
