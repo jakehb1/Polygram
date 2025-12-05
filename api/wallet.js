@@ -123,15 +123,31 @@ module.exports = async (req, res) => {
 
       // Encrypt private keys (requires ENCRYPTION_KEY)
       let encryptionKey;
+      let encryptionError = null;
       try {
         encryptionKey = getEncryptionKey();
       } catch (encryptErr) {
         console.error("[wallet] Encryption key error:", encryptErr);
-        return res.status(500).json({
-          error: "encryption_key_error",
-          message: encryptErr.message,
-          code: encryptErr.code,
-          help: "Generate a valid key with: openssl rand -hex 32"
+        encryptionError = encryptErr;
+        // Don't fail immediately - we'll handle this below
+      }
+      
+      // If encryption key is missing, we can't save to Supabase securely
+      if (encryptionError) {
+        // Still generate wallets so user can see them, but warn about persistence
+        console.warn("[wallet] Encryption key missing - wallets generated but not persisted");
+        return res.status(200).json({
+          success: true,
+          wallet: {
+            solana: solanaAddress,
+            polygon: polygonWallet.address.toLowerCase(),
+            userId: normalizedUserId,
+            createdAt: new Date().toISOString(),
+          },
+          isNew: true,
+          warning: "Wallets generated but not saved. ENCRYPTION_KEY must be configured in Vercel to persist wallets.",
+          error: "encryption_key_missing",
+          help: "Set ENCRYPTION_KEY environment variable in Vercel. Generate with: openssl rand -hex 32"
         });
       }
       

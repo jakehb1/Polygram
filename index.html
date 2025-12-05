@@ -1790,10 +1790,20 @@
         // Update status
         const statusEl = document.getElementById('walletStatusBar');
         if (statusEl) {
-          if (data.isNew) {
-            statusEl.textContent = '✓ Wallets created - fund to trade';
+          // Check for warnings (like encryption key missing)
+          if (data.warning || data.error === 'encryption_key_missing') {
+            statusEl.textContent = '⚠ Wallets created (not saved - config issue)';
+            statusEl.style.background = 'var(--yellow)';
+            statusEl.style.color = 'var(--text)';
+            console.warn('Wallet warning:', data.warning || data.help);
           } else {
-            statusEl.textContent = '✓ Wallets loaded - fund to trade';
+            if (data.isNew) {
+              statusEl.textContent = '✓ Wallets created - fund to trade';
+            } else {
+              statusEl.textContent = '✓ Wallets loaded - fund to trade';
+            }
+            statusEl.style.background = 'var(--accent)';
+            statusEl.style.color = 'white';
           }
         }
         
