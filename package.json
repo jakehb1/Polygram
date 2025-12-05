@@ -6,7 +6,10 @@
     "dev": "vercel dev",
     "test": "node test-setup.js",
     "test:local": "TEST_URL=http://localhost:3000 node test-setup.js",
-    "test:prod": "TEST_URL=https://your-app.vercel.app node test-setup.js"
+    "test:prod": "TEST_URL=https://your-app.vercel.app node test-setup.js",
+    "test:flows": "node test-flows.js",
+    "test:flows:local": "TEST_URL=http://localhost:3000 node test-flows.js",
+    "test:flows:prod": "TEST_URL=https://your-app.vercel.app node test-flows.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
