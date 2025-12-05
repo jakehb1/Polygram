@@ -57,6 +57,31 @@ module.exports = async (req, res) => {
 
   const GAMMA_API = "https://gamma-api.polymarket.com";
   
+  // Helper function to extract week number from text
+  function extractWeekNumber(text) {
+    if (!text) return null;
+    const weekMatch = text.match(/week\s*(\d+)/i);
+    return weekMatch ? parseInt(weekMatch[1], 10) : null;
+  }
+  
+  // Helper function to determine current NFL week (approximate)
+  // NFL season typically starts early September, 18 weeks regular season
+  function getCurrentNFLWeek() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    // NFL season typically starts first Thursday of September
+    // Approximate: September 5-12 is usually Week 1
+    const seasonStart = new Date(currentYear, 8, 5); // September 5
+    const daysSinceStart = Math.floor((now - seasonStart) / (1000 * 60 * 60 * 24));
+    const week = Math.floor(daysSinceStart / 7) + 1;
+    // Clamp to reasonable range (1-18 for regular season, up to 22 for playoffs)
+    return Math.max(1, Math.min(22, week));
+  }
+  
+  // Define current date and week at function level so they're available everywhere
+  const now = new Date();
+  const currentWeek = getCurrentNFLWeek();
+  
   try {
     let markets = [];
     
@@ -155,6 +180,7 @@ module.exports = async (req, res) => {
       
       const isGamesOnly = sportType === "games";
       console.log("[markets] Fetching NFL games, sportType:", sportType, "gamesOnly:", isGamesOnly);
+      console.log("[markets] Current NFL week (estimated):", currentWeek);
       
       // Map sport slugs to common variations for better matching
       const sportVariations = {
@@ -168,34 +194,6 @@ module.exports = async (req, res) => {
       };
       
       const searchTerms = sportVariations[kind.toLowerCase()] || [kind.toLowerCase()];
-      
-      // Helper function to extract week number from text
-      function extractWeekNumber(text) {
-        if (!text) return null;
-        const weekMatch = text.match(/week\s*(\d+)/i);
-        return weekMatch ? parseInt(weekMatch[1], 10) : null;
-      }
-      
-      // Helper function to determine current NFL week (approximate)
-      // NFL season typically starts early September, 18 weeks regular season
-      function getCurrentNFLWeek() {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        // NFL season typically starts first Thursday of September
-        // Approximate: September 5-12 is usually Week 1
-        const seasonStart = new Date(currentYear, 8, 5); // September 5
-        const daysSinceStart = Math.floor((now - seasonStart) / (1000 * 60 * 60 * 24));
-        const week = Math.floor(daysSinceStart / 7) + 1;
-        // Clamp to reasonable range (1-18 for regular season, up to 22 for playoffs)
-        return Math.max(1, Math.min(22, week));
-      }
-      
-      // Get current week for filtering
-      const currentWeek = getCurrentNFLWeek();
-      const now = new Date();
-      const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
-      console.log("[markets] Current NFL week (estimated):", currentWeek);
       
       // Strategy 1: Fetch events directly (this gives us game structure)
       try {
@@ -1104,18 +1102,46 @@ module.exports = async (req, res) => {
           slug.includes("spread") ||
           slug.includes("total");
         
-        // Exclude only clearly prop markets (leader, MVP, award markets)
+        // STRICT PROPS FILTERING: Exclude ALL prop markets
+        // Any "will" question without game indicators is a prop
+        const isWillQuestion = question.includes("will ");
+        const hasGameIndicators = question.includes(" vs ") || question.includes(" v ") ||
+                                 question.includes("moneyline") || question.includes("spread") ||
+                                 question.includes("total") || question.includes("o/u");
+        
         const isDefinitelyProp = 
-          (question.includes("will ") && (question.includes("leader") || question.includes("mvp") || question.includes("award"))) ||
+          // "Will" questions without game indicators are props
+          (isWillQuestion && !hasGameIndicators) ||
+          // Season-long awards and predictions
           question.includes("leader") ||
           question.includes("mvp") ||
           question.includes("award") ||
+          question.includes("rookie of the year") ||
+          question.includes("offensive rookie") ||
+          question.includes("defensive rookie") ||
+          question.includes("offensive player of the year") ||
+          question.includes("defensive player of the year") ||
+          // Championships without week/game context
           (question.includes("champion") && !question.includes("week") && !question.includes("vs")) ||
+          (question.includes("super bowl") && !question.includes("week") && !question.includes("vs")) ||
+          (question.includes("playoff") && !question.includes("week") && !question.includes("vs")) ||
+          // Winner questions that aren't moneyline
           (question.includes("winner") && !question.includes("week") && !question.includes("vs") && !question.includes("moneyline")) ||
-          (slug.includes("prop") && (slug.includes("leader") || slug.includes("mvp")));
+          // Slug-based prop indicators
+          slug.includes("prop") ||
+          slug.includes("mvp") ||
+          slug.includes("leader") ||
+          slug.includes("rookie") ||
+          // Season-long predictions
+          question.includes("in 2025") ||
+          question.includes("in 2026") ||
+          question.includes("2025-2026") ||
+          question.includes("2026-2027") ||
+          question.includes("be the"); // "Will X be the Y" is usually a prop
         
-        // Include if: (has event info OR looks like a game) AND is not a prop
-        return (hasEventInfo || looksLikeGame) && !isDefinitelyProp;
+        // STRICT: Only include if it has event info AND looks like a game AND is not a prop
+        // For games, we require BOTH event info AND game indicators (no standalone markets)
+        return hasEventInfo && looksLikeGame && !isDefinitelyProp;
       });
       console.log("[markets] After games-only filter:", markets.length, "(removed", beforeFilter - markets.length, "non-game markets)");
       
