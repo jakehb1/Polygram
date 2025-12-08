@@ -79,16 +79,33 @@ module.exports = async (req, res) => {
     }
     
     // Add predefined categories first, looking up tagId from API tags
-    // NOTE: Predefined categories are ALWAYS included, even if tagId lookup fails (tagId will be null)
-    // This ensures categories like "politics", "sports", "finance" are always available
+    // Use exact slug matching to get the same tag IDs Polymarket uses
     for (const [key, cat] of Object.entries(categoryMap)) {
-      // For sort modes, tagId stays null. For categories, look up the tagId
+      // For sort modes, tagId stays null. For categories, look up the tagId by exact slug match
       let tagId = null;
       if (cat.isCategory && !cat.isSort) {
+        // Exact match first (most reliable)
         tagId = tagSlugToId.get(cat.slug) || null;
+        
+        // If exact match fails, try to find by label/name
+        if (!tagId) {
+          for (const tag of tags) {
+            const tagSlug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+            if (tagSlug === cat.slug.toLowerCase() && tag.id) {
+              tagId = tag.id;
+              break;
+            }
+          }
+        }
+        
+        if (tagId) {
+          console.log(`[categories] Found tag ID for ${cat.slug}: ${tagId}`);
+        } else {
+          console.log(`[categories] WARNING: No tag ID found for ${cat.slug}`);
+        }
       }
       
-      // Always add predefined categories regardless of tagId value
+      // Always add predefined categories - they should match Polymarket's structure
       categories.push({
         id: key,
         label: cat.label,
@@ -96,7 +113,7 @@ module.exports = async (req, res) => {
         slug: cat.slug,
         isSort: cat.isSort || false,
         isCategory: cat.isCategory || false,
-        tagId: tagId, // May be null if lookup fails, but category is still included
+        tagId: tagId, // Exact tag ID from Polymarket's /tags endpoint
       });
       seenSlugs.add(cat.slug);
     }
