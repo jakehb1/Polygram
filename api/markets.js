@@ -95,9 +95,10 @@ module.exports = async (req, res) => {
     
     if (isCategory && kind !== "sports" && !isSportsSubcategory) {
       // Fetch markets for a specific category (Finance, Politics, Crypto, etc.)
+      // Match Polymarket exactly by using their tag IDs
       console.log("[markets] Fetching markets for category:", kind);
       
-      // Get tag IDs for this category (may have multiple tags)
+      // Get tag IDs for this category - use exact slug matching first
       let categoryTagIds = [];
       let categoryTagId = null;
       
@@ -106,56 +107,66 @@ module.exports = async (req, res) => {
         if (tagsResp.ok) {
           const tags = await tagsResp.json();
           if (Array.isArray(tags)) {
-            // Find all tags matching the category (exact match or contains)
-            // Also check for common variations (e.g., "politics" might be "political")
-            const categoryTags = tags.filter(tag => {
+            const kindLower = kind.toLowerCase();
+            
+            // Strategy 1: Exact slug match (most reliable - matches Polymarket exactly)
+            const exactMatch = tags.find(tag => {
               const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
-              const kindLower = kind.toLowerCase();
-              
-              // Exact match
-              if (slug === kindLower) return true;
-              
-              // Contains match
-              if (slug.includes(kindLower) || kindLower.includes(slug)) return true;
-              
-              // Common variations
-              const variations = {
-                'politics': ['political', 'politic', 'election', 'elections'],
-                'finance': ['financial', 'economy', 'economic'],
-                'crypto': ['cryptocurrency', 'cryptocurrencies', 'bitcoin', 'ethereum'],
-                'tech': ['technology', 'technological'],
-                'geopolitics': ['geopolitical', 'world', 'international']
-              };
-              
-              if (variations[kindLower]) {
-                return variations[kindLower].some(v => slug.includes(v) || v.includes(slug));
-              }
-              
-              return false;
+              return slug === kindLower;
             });
             
-            categoryTagIds = categoryTags.map(tag => tag.id).filter(id => id);
-            categoryTagId = categoryTagIds[0]; // Use first as primary
-            console.log("[markets] Found tag IDs for category:", categoryTagIds);
+            if (exactMatch && exactMatch.id) {
+              categoryTagIds = [exactMatch.id];
+              categoryTagId = exactMatch.id;
+              console.log("[markets] Found exact tag match for", kind, ":", exactMatch.id, "slug:", exactMatch.slug);
+            } else {
+              // Strategy 2: Try common variations if exact match fails
+              const variations = {
+                'politics': ['politics', 'political'],
+                'finance': ['finance', 'financial'],
+                'crypto': ['crypto', 'cryptocurrency'],
+                'tech': ['tech', 'technology'],
+                'geopolitics': ['geopolitics', 'geopolitical']
+              };
+              
+              const searchTerms = variations[kindLower] || [kindLower];
+              const matchingTags = tags.filter(tag => {
+                const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+                return searchTerms.some(term => slug === term || slug.includes(term));
+              });
+              
+              if (matchingTags.length > 0) {
+                categoryTagIds = matchingTags.map(tag => tag.id).filter(id => id);
+                categoryTagId = categoryTagIds[0];
+                console.log("[markets] Found tag IDs via variation matching:", categoryTagIds);
+              } else {
+                console.log("[markets] WARNING: No tag found for category:", kind);
+              }
+            }
           }
         }
       } catch (e) {
         console.log("[markets] Error fetching tags for category:", e.message);
       }
       
-      // Strategy 1: Fetch markets directly by tag ID(s) with high limit
+      // Strategy 1: Fetch markets directly by tag ID(s) - this is how Polymarket does it
+      // Use exact tag IDs matching Polymarket's structure
       const tagIdsToUse = categoryTagIds.length > 0 ? categoryTagIds : (categoryTagId ? [categoryTagId] : []);
       
       if (tagIdsToUse.length > 0) {
         // Fetch from all tag IDs in parallel for faster loading
+        // Use same parameters Polymarket uses: closed=false, active=true (if supported), high limit
         const marketPromises = tagIdsToUse.map(async (tagId) => {
           try {
-            // Fetch markets - filter by volume after fetching (Gamma API may not support minVolume param)
+            // Match Polymarket's query structure exactly
             const url = `${GAMMA_API}/markets?tag_id=${tagId}&closed=false&limit=5000`;
             const resp = await fetch(url);
             if (resp.ok) {
               const data = await resp.json();
-              return Array.isArray(data) ? data.filter(m => !m.closed && m.active !== false) : [];
+              if (Array.isArray(data)) {
+                // Filter for active, non-closed markets (same as Polymarket)
+                return data.filter(m => !m.closed && m.active !== false);
+              }
             }
             return [];
           } catch (e) {
@@ -168,10 +179,12 @@ module.exports = async (req, res) => {
           const marketArrays = await Promise.all(marketPromises);
           const allMarkets = marketArrays.flat();
           markets.push(...allMarkets);
-          console.log("[markets] Fetched", allMarkets.length, "markets from tag IDs");
+          console.log("[markets] Fetched", allMarkets.length, "markets from tag IDs", tagIdsToUse);
         } catch (e) {
           console.log("[markets] Error processing tag-based markets:", e.message);
         }
+      } else {
+        console.log("[markets] WARNING: No tag IDs found for category", kind, "- cannot fetch markets");
       }
       
       // Strategy 2: Also fetch from events endpoint (events contain their markets)
@@ -224,10 +237,11 @@ module.exports = async (req, res) => {
         console.log("[markets] Error fetching events for category:", e.message);
       }
       
-      // Strategy 3: Fallback - fetch all markets and filter by tag or text matching
-      if (markets.length === 0) {
+      // Strategy 2: If no markets found and we have tag IDs, try filtering all markets by tag
+      // This is a fallback in case the tag_id query didn't work
+      if (markets.length === 0 && categoryTagIds.length > 0) {
         try {
-          console.log("[markets] No markets found via tag IDs, trying fallback search...");
+          console.log("[markets] No markets from tag_id query, trying fallback with tag filtering...");
           const url = `${GAMMA_API}/markets?closed=false&limit=5000`;
           const resp = await fetch(url);
           if (resp.ok) {
@@ -236,43 +250,16 @@ module.exports = async (req, res) => {
               const categoryMarkets = data.filter(m => {
                 if (m.closed || m.active === false) return false;
                 
-                // If we have tag IDs, check for tag matches
-                if (categoryTagIds.length > 0) {
-                  const marketTags = m.tags || m.tagIds || [];
-                  const hasTagMatch = (Array.isArray(marketTags) && marketTags.some(tagId => categoryTagIds.includes(tagId))) ||
-                                     categoryTagIds.includes(m.tagId) || 
-                                     categoryTagIds.includes(m.tag_id);
-                  if (hasTagMatch) return true;
-                }
+                // Check if market has matching tag_id (exact match only - no keyword matching)
+                const marketTags = m.tags || m.tagIds || [];
+                const hasTagMatch = (Array.isArray(marketTags) && marketTags.some(tagId => categoryTagIds.includes(tagId))) ||
+                                   categoryTagIds.includes(m.tagId) || 
+                                   categoryTagIds.includes(m.tag_id);
                 
-                // Also check market question/slug for category keywords
-                const question = (m.question || "").toLowerCase();
-                const slug = (m.slug || "").toLowerCase();
-                const kindLower = kind.toLowerCase();
-                
-                // Check if market text contains category keyword
-                if (question.includes(kindLower) || slug.includes(kindLower)) {
-                  return true;
-                }
-                
-                // Check for common category keywords
-                const categoryKeywords = {
-                  'politics': ['election', 'president', 'senate', 'congress', 'trump', 'biden', 'democrat', 'republican', 'vote', 'voting'],
-                  'finance': ['fed', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'stock', 'market', 'trading'],
-                  'crypto': ['bitcoin', 'ethereum', 'solana', 'crypto', 'blockchain', 'defi', 'nft'],
-                  'tech': ['apple', 'google', 'microsoft', 'meta', 'ai', 'artificial intelligence', 'tech', 'technology']
-                };
-                
-                if (categoryKeywords[kindLower]) {
-                  return categoryKeywords[kindLower].some(keyword => 
-                    question.includes(keyword) || slug.includes(keyword)
-                  );
-                }
-                
-                return false;
+                return hasTagMatch;
               });
               markets.push(...categoryMarkets);
-              console.log("[markets] Added", categoryMarkets.length, "markets from fallback search");
+              console.log("[markets] Added", categoryMarkets.length, "markets from fallback tag filtering");
             }
           }
         } catch (e) {
@@ -284,8 +271,9 @@ module.exports = async (req, res) => {
       if (markets.length === 0) {
         console.log("[markets] WARNING: No markets found for category:", kind);
         console.log("[markets] Tag IDs searched:", categoryTagIds);
+        console.log("[markets] This may indicate the tag ID doesn't exist or has no active markets");
       } else {
-        console.log("[markets] Successfully found", markets.length, "markets for category:", kind);
+        console.log("[markets] Successfully found", markets.length, "markets for category:", kind, "using tag IDs:", categoryTagIds);
       }
       
     } else if (isSportsSubcategory) {
