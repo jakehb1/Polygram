@@ -2193,8 +2193,8 @@
       try {
         console.log('[fetchMarkets] Fetching:', kind, 'sportType:', sportType);
         // Reduce limit for faster loading - 1000 markets is plenty for initial display
-        // Only show markets with volume - filter out zero-volume markets
-        let apiUrl = `/api/markets?kind=${kind}&limit=1000&minVolume=1`;
+        // Only show markets with volume - filter out zero-volume markets (use $0.01 minimum)
+        let apiUrl = `/api/markets?kind=${kind}&limit=1000&minVolume=0.01`;
         if (sportType) {
           apiUrl += `&sportType=${sportType}`;
         }

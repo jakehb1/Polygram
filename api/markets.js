@@ -39,10 +39,11 @@ module.exports = async (req, res) => {
   const { kind = "trending", limit = "1000", sportType = null } = req.query;
   // Allow much higher limits to get all markets (default 1000, max 10000)
   const limitNum = Math.min(Math.max(Number(limit) || 1000, 1), 10000);
-  // Parse minVolume - default to $1 to filter out zero-volume markets
+  // Parse minVolume - default to $0.01 to filter out zero-volume markets but allow very low volume
+  // This ensures we get live markets even if they have minimal volume
   const minVolumeProvided = req.query.minVolume !== undefined && req.query.minVolume !== null;
-  const minVolumeParsed = minVolumeProvided ? Number(req.query.minVolume) : 1;
-  const minVolumeNum = Math.max(isNaN(minVolumeParsed) ? 1 : minVolumeParsed, 0);
+  const minVolumeParsed = minVolumeProvided ? Number(req.query.minVolume) : 0.01;
+  const minVolumeNum = Math.max(isNaN(minVolumeParsed) ? 0.01 : minVolumeParsed, 0);
   // sportType: "games" or "props" - used to filter sports markets
 
   // Check cache first (only for reasonable limits to avoid caching huge responses)
