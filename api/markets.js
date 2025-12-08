@@ -180,14 +180,14 @@ module.exports = async (req, res) => {
         
         // Fetch events with these tag IDs - events contain their markets
         try {
-          // Try multiple event queries in parallel
+          // Try multiple event queries in parallel - increase limit to get all events
           const eventQueries = tagIdsToUse.map(tagId => 
-            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=1000`
+            `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=5000`
           );
           
           // Also try direct tag_id filter on events if supported
           eventQueries.push(...tagIdsToUse.map(tagId => 
-            `${GAMMA_API}/events?tag_id=${tagId}&closed=false&order=id&ascending=false&limit=1000`
+            `${GAMMA_API}/events?tag_id=${tagId}&closed=false&order=id&ascending=false&limit=5000`
           ));
           
           const eventPromises = eventQueries.map(async (eventUrl) => {
@@ -218,13 +218,18 @@ module.exports = async (req, res) => {
           const uniqueEvents = Array.from(eventMap.values());
           console.log("[markets] Found", uniqueEvents.length, "unique events");
           
-          // Filter events by category tag IDs
+          // Filter events by category tag IDs - check both string and number format
           const categoryEvents = uniqueEvents.filter(event => {
             const eventTags = event.tags || [];
-            // Check if event has any of our category tag IDs
+            // Check if event has any of our category tag IDs (handle both string and number)
             return eventTags.some(tag => {
               const tagId = typeof tag === 'object' ? tag.id : tag;
-              return tagIdsToUse.includes(tagId);
+              // Compare as both string and number to handle format differences
+              return tagIdsToUse.some(targetId => 
+                tagId === targetId || 
+                String(tagId) === String(targetId) ||
+                Number(tagId) === Number(targetId)
+              );
             });
           });
           
@@ -268,7 +273,7 @@ module.exports = async (req, res) => {
       if (markets.length === 0 && tagIdsToUse.length > 0) {
         console.log("[markets] No markets from primary strategy, trying comprehensive fallback...");
         try {
-          const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=2000`;
+          const eventsUrl = `${GAMMA_API}/events?closed=false&order=id&ascending=false&limit=5000`;
           const eventsResp = await fetch(eventsUrl);
           if (eventsResp.ok) {
             const events = await eventsResp.json();
@@ -277,7 +282,12 @@ module.exports = async (req, res) => {
                 const eventTags = event.tags || [];
                 return eventTags.some(tag => {
                   const tagId = typeof tag === 'object' ? tag.id : tag;
-                  return tagIdsToUse.includes(tagId);
+                  // Compare as both string and number to handle format differences
+                  return tagIdsToUse.some(targetId => 
+                    tagId === targetId || 
+                    String(tagId) === String(targetId) ||
+                    Number(tagId) === Number(targetId)
+                  );
                 });
               });
               
