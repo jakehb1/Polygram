@@ -343,8 +343,8 @@ module.exports = async (req, res) => {
       console.log("[markets] Fetching from Polymarket API (database not available or empty)");
       
       const GAMMA_API = "https://gamma-api.polymarket.com";
-    
-    if (isCategory && kind !== "sports" && !isSportsSubcategory) {
+      
+      if (isCategory && kind !== "sports" && !isSportsSubcategory) {
       // Fetch markets for a specific category (Finance, Politics, Crypto, etc.)
       // Match Polymarket exactly by using their tag IDs
       console.log("[markets] Fetching markets for category:", kind);
@@ -1788,7 +1788,8 @@ module.exports = async (req, res) => {
       setCache(cacheKey, response);
     }
 
-    return res.status(200).json(response);
+      return res.status(200).json(response);
+    } // End of API fallback block
     
   } catch (err) {
     console.error("[markets] Error:", err.message);
