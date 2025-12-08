@@ -178,22 +178,24 @@ async function syncCategory(supabase, category, tagId, fullSync = false) {
           // Only sync active, non-closed markets
           if (market.closed || market.active === false) continue;
 
-          // Extract tag IDs from event
-          const tagIds = (event.tags || []).map(t => typeof t === 'object' ? t.id : t);
+          // Extract tag IDs from event and market
+          const eventTagIds = (event.tags || []).map(t => typeof t === 'object' ? t.id : t);
+          const marketTagIds = (market.tags || []).map(t => typeof t === 'object' ? t.id : t);
+          const allTagIds = [...new Set([...eventTagIds, ...marketTagIds])]; // Combine and dedupe
 
           const marketData = {
             id: String(market.id || market.conditionId),
             condition_id: market.conditionId ? String(market.conditionId) : null,
-            question: market.question,
-            slug: market.slug,
-            description: market.description,
-            image: market.image || event.image || event.icon,
-            icon: market.icon || event.icon,
+            question: market.question || market.title || '',
+            slug: market.slug || '',
+            description: market.description || '',
+            image: market.image || event.image || event.icon || market.icon || null,
+            icon: market.icon || event.icon || null,
             outcomes: market.outcomes || [],
-            outcome_prices: market.outcomePrices || [],
+            outcome_prices: market.outcomePrices || market.prices || [],
             volume: parseFloat(market.volume) || 0,
-            volume_24hr: parseFloat(market.volume24hr) || 0,
-            volume_1wk: parseFloat(market.volume1wk) || 0,
+            volume_24hr: parseFloat(market.volume24hr || market.volume24h) || 0,
+            volume_1wk: parseFloat(market.volume1wk || market.volume1w) || 0,
             liquidity: parseFloat(market.liquidity) || 0,
             active: market.active !== false,
             closed: market.closed || false,
@@ -206,8 +208,8 @@ async function syncCategory(supabase, category, tagId, fullSync = false) {
             event_end_date: event.endDate ? new Date(event.endDate).toISOString() : null,
             event_tags: event.tags || [],
             category: category,
-            tag_ids: tagIds,
-            resolution_source: market.resolutionSource,
+            tag_ids: allTagIds,
+            resolution_source: market.resolutionSource || market.resolution_source || null,
             end_date: market.endDate ? new Date(market.endDate).toISOString() : null,
             start_date: market.startDate ? new Date(market.startDate).toISOString() : null,
             created_at_pm: market.createdAt ? new Date(market.createdAt).toISOString() : null,
@@ -270,6 +272,143 @@ async function syncCategory(supabase, category, tagId, fullSync = false) {
       }
     }
 
+    // Also fetch markets directly (not just from events) to ensure we get all markets
+    // Some markets might not be in events or might have been missed
+    console.log(`[sync-markets] Fetching markets directly for category ${category}...`);
+    
+    try {
+      const marketsUrl = `${GAMMA_API}/markets?closed=false&active=true&limit=5000`;
+      const marketsResp = await fetch(marketsUrl);
+      
+      if (marketsResp.ok) {
+        const allMarkets = await marketsResp.json();
+        if (Array.isArray(allMarkets)) {
+          // Filter markets by category tag
+          const categoryMarkets = allMarkets.filter(market => {
+            // Check if market has the category tag
+            const marketTags = market.tags || [];
+            const hasCategoryTag = marketTags.some(tag => {
+              const tagId = typeof tag === 'object' ? tag.id : tag;
+              return Number(tagId) === normalizedTagId;
+            });
+            
+            // Also check if market's event has the category tag
+            if (market.eventId) {
+              const event = categoryEvents.find(e => String(e.id) === String(market.eventId));
+              if (event) return true; // Already synced from event
+            }
+            
+            return hasCategoryTag;
+          });
+          
+          console.log(`[sync-markets] Found ${categoryMarkets.length} additional markets directly`);
+          
+          // Sync these markets (they might not have events or might be standalone)
+          for (const market of categoryMarkets) {
+            // Skip if already synced from events
+            if (market.eventId) {
+              const event = categoryEvents.find(e => String(e.id) === String(market.eventId));
+              if (event) continue; // Already synced
+            }
+            
+            // Only sync active, non-closed markets
+            if (market.closed || market.active === false) continue;
+            
+            // Extract tag IDs
+            const marketTagIds = (market.tags || []).map(t => typeof t === 'object' ? t.id : t);
+            
+            const marketData = {
+              id: String(market.id || market.conditionId),
+              condition_id: market.conditionId ? String(market.conditionId) : null,
+              question: market.question || market.title || '',
+              slug: market.slug || '',
+              description: market.description || '',
+              image: market.image || market.icon || null,
+              icon: market.icon || null,
+              outcomes: market.outcomes || [],
+              outcome_prices: market.outcomePrices || market.prices || [],
+              volume: parseFloat(market.volume) || 0,
+              volume_24hr: parseFloat(market.volume24hr || market.volume24h) || 0,
+              volume_1wk: parseFloat(market.volume1wk || market.volume1w) || 0,
+              liquidity: parseFloat(market.liquidity) || 0,
+              active: market.active !== false,
+              closed: market.closed || false,
+              resolved: market.resolved || false,
+              event_id: market.eventId ? String(market.eventId) : null,
+              event_title: market.eventTitle || market.event?.title || null,
+              event_slug: market.eventSlug || market.event?.slug || null,
+              event_image: market.eventImage || market.event?.image || market.event?.icon || null,
+              event_start_date: market.eventStartDate ? new Date(market.eventStartDate).toISOString() : null,
+              event_end_date: market.eventEndDate ? new Date(market.eventEndDate).toISOString() : null,
+              event_tags: market.eventTags || market.event?.tags || [],
+              category: category,
+              tag_ids: marketTagIds,
+              resolution_source: market.resolutionSource || market.resolution_source || null,
+              end_date: market.endDate ? new Date(market.endDate).toISOString() : null,
+              start_date: market.startDate ? new Date(market.startDate).toISOString() : null,
+              created_at_pm: market.createdAt ? new Date(market.createdAt).toISOString() : null,
+              updated_at_pm: market.updatedAt ? new Date(market.updatedAt).toISOString() : null,
+              synced_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            // Upsert market
+            const { error: marketError } = await supabase
+              .from('markets')
+              .upsert(marketData, { onConflict: 'id' });
+            
+            if (marketError) {
+              console.error(`[sync-markets] Error upserting direct market ${market.id}:`, marketError);
+            } else {
+              marketsSynced++;
+              
+              // Track price history for this market
+              try {
+                const outcomes = market.outcomes || ["Yes", "No"];
+                const prices = market.outcomePrices || market.prices || [];
+                const priceHistoryRecords = [];
+                
+                outcomes.forEach((outcome, index) => {
+                  const price = prices[index] !== undefined ? parseFloat(prices[index]) : null;
+                  if (price !== null && !isNaN(price)) {
+                    priceHistoryRecords.push({
+                      market_id: String(market.id || market.conditionId),
+                      condition_id: market.conditionId ? String(market.conditionId) : null,
+                      outcome_index: index,
+                      outcome_name: outcome,
+                      price: price,
+                      volume: parseFloat(market.volume24hr || market.volume24h) || parseFloat(market.volume) || 0,
+                      liquidity: parseFloat(market.liquidity) || 0,
+                      timestamp: new Date().toISOString()
+                    });
+                  }
+                });
+                
+                // Insert price history records
+                if (priceHistoryRecords.length > 0) {
+                  const { error: historyError } = await supabase
+                    .from('market_price_history')
+                    .upsert(priceHistoryRecords, { 
+                      onConflict: 'market_price_history_market_outcome_idx',
+                      ignoreDuplicates: false
+                    });
+                  
+                  if (historyError) {
+                    console.error(`[sync-markets] Error tracking price history for direct market ${market.id}:`, historyError);
+                  }
+                }
+              } catch (historyErr) {
+                console.error(`[sync-markets] Error in price history tracking for direct market:`, historyErr.message);
+              }
+            }
+          }
+        }
+      }
+    } catch (directMarketErr) {
+      console.error(`[sync-markets] Error fetching direct markets:`, directMarketErr.message);
+      // Don't fail the whole sync if direct market fetch fails
+    }
+    
     console.log(`[sync-markets] Synced ${marketsSynced} markets and ${eventsSynced} events for ${category}`);
     
     return { markets: marketsSynced, events: eventsSynced };
