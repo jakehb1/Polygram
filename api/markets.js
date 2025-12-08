@@ -104,18 +104,22 @@ module.exports = async (req, res) => {
       let categoryTagIds = [];
       let categoryTagId = null;
       
-      // Known tag IDs from Polymarket (discovered through testing)
+      // Known tag IDs from Polymarket (verified from events - these are the actual tag IDs used)
+      // These match exactly what Polymarket uses in their events
       const knownTagIds = {
-        'politics': 2,
-        'finance': 3,
-        'crypto': 4,
-        'sports': 5,
-        'tech': 6,
-        'geopolitics': 100265,
-        'culture': 596,
-        'world': 101970,
-        'economy': 7,
-        'elections': 377
+        'politics': 2,           // Politics - 267 events
+        'finance': 120,          // Finance - 22 events
+        'crypto': 21,            // Crypto - 59 events
+        'sports': 1,             // Sports - 47 events
+        'tech': 1401,           // Tech - 49 events
+        'geopolitics': 100265,   // Geopolitics - 100 events
+        'culture': 596,          // Culture (pop-culture) - 66 events
+        'world': 101970,         // World - 134 events
+        'economy': 100328,       // Economy - 26 events
+        'elections': 377,        // Elections 2024
+        'breaking': 198,         // Breaking News - 2 events
+        'new': null,             // "New" is a sort mode, not a category tag
+        'trending': null,        // "Trending" is a sort mode, not a category tag
       };
       
       const kindLower = kind.toLowerCase();
