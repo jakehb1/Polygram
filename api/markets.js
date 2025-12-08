@@ -200,6 +200,24 @@ module.exports = async (req, res) => {
         }
       } else {
         console.log("[markets] WARNING: No tag IDs found for category", kind, "- cannot fetch markets");
+        // Try to fetch all tags to see what's available
+        try {
+          const debugTagsResp = await fetch(`${GAMMA_API}/tags`);
+          if (debugTagsResp.ok) {
+            const allTags = await debugTagsResp.json();
+            if (Array.isArray(allTags)) {
+              const politicsTags = allTags.filter(tag => {
+                const slug = (tag.slug || tag.label || tag.name || "").toLowerCase();
+                return slug.includes('politic') || slug.includes('election');
+              });
+              console.log("[markets] DEBUG: Found", politicsTags.length, "politics-related tags:", 
+                politicsTags.map(t => ({ id: t.id, slug: t.slug || t.label, name: t.name }))
+              );
+            }
+          }
+        } catch (e) {
+          console.log("[markets] DEBUG: Error fetching tags for debugging:", e.message);
+        }
       }
       
       // Strategy 2: Also fetch from events endpoint (events contain their markets)
