@@ -1319,6 +1319,265 @@
       color: var(--text-muted);
       font-size: 14px;
     }
+
+    /* Market Detail View */
+    .market-detail-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      z-index: 1000;
+      overflow-y: auto;
+      padding-bottom: 80px;
+    }
+    .market-detail-header {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .market-detail-title {
+      flex: 1;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .market-detail-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-btn:hover {
+      opacity: 0.7;
+    }
+    .market-detail-content {
+      padding: 16px;
+    }
+    .market-detail-volume {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .market-detail-event {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .market-detail-event img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+    .market-detail-outcomes-list {
+      margin-bottom: 24px;
+    }
+    .outcome-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .outcome-item:hover {
+      border-color: var(--accent);
+    }
+    .outcome-item.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .outcome-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .outcome-dot.blue { background: #3b82f6; }
+    .outcome-dot.green { background: #10b981; }
+    .outcome-dot.orange { background: #f59e0b; }
+    .outcome-dot.red { background: #ef4444; }
+    .outcome-dot.purple { background: #8b5cf6; }
+    .outcome-dot.pink { background: #ec4899; }
+    .outcome-label {
+      flex: 1;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .outcome-percent {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 50px;
+      text-align: right;
+    }
+    .market-detail-graph-container {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    #marketDetailGraph {
+      width: 100%;
+      height: 200px;
+      margin-bottom: 12px;
+    }
+    .graph-time-selectors {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .time-selector {
+      padding: 6px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .time-selector:hover {
+      border-color: var(--accent);
+    }
+    .time-selector.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .market-detail-selected-outcome {
+      display: flex;
+      justify-content: space-between;
+      padding: 16px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .selected-outcome-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .selected-outcome-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .selected-outcome-volume {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .selected-outcome-percent {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .market-detail-buy-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .buy-btn {
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .buy-btn:active {
+      transform: scale(0.98);
+    }
+    .buy-btn-yes {
+      background: var(--green);
+      color: white;
+    }
+    .buy-btn-no {
+      background: var(--bg);
+      color: var(--text);
+      border: 2px solid var(--border);
+    }
+    .buy-btn-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+    .buy-btn-outcome {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .buy-btn-price {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* Sub-filters */
+    .sub-filters {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .sub-filter-btn {
+      padding: 6px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sub-filter-btn:hover {
+      border-color: var(--accent);
+    }
+    .sub-filter-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -1437,8 +1696,84 @@
         </div>
       </div>
       
+      <div class="sub-filters" id="subFilters" style="display: none;">
+        <!-- Sub-filters will be dynamically generated -->
+      </div>
+      
       <div class="markets-list" id="marketsList">
         <div class="loading">Loading markets...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Detail View -->
+  <div class="market-detail-view" id="marketDetailView" style="display: none;">
+    <div class="market-detail-header">
+      <button class="back-btn" id="marketDetailBack">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <div class="market-detail-title" id="marketDetailTitle"></div>
+      <div class="market-detail-actions">
+        <button class="icon-btn" id="marketDetailShare" title="Share">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+        </button>
+        <button class="icon-btn" id="marketDetailBookmark" title="Bookmark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    
+    <div class="market-detail-content">
+      <div class="market-detail-volume" id="marketDetailVolume"></div>
+      <div class="market-detail-event" id="marketDetailEvent"></div>
+      
+      <div class="market-detail-outcomes-list" id="marketDetailOutcomesList"></div>
+      
+      <div class="market-detail-graph-container">
+        <canvas id="marketDetailGraph" width="400" height="200"></canvas>
+        <div class="graph-time-selectors">
+          <button class="time-selector active" data-range="1H">1H</button>
+          <button class="time-selector" data-range="6H">6H</button>
+          <button class="time-selector" data-range="1D">1D</button>
+          <button class="time-selector" data-range="1W">1W</button>
+          <button class="time-selector" data-range="1M">1M</button>
+          <button class="time-selector" data-range="ALL">ALL</button>
+        </div>
+      </div>
+      
+      <div class="market-detail-selected-outcome" id="marketDetailSelectedOutcome">
+        <div class="selected-outcome-left">
+          <div class="selected-outcome-label">OUTCOME</div>
+          <div class="selected-outcome-name" id="selectedOutcomeName">--</div>
+          <div class="selected-outcome-volume" id="selectedOutcomeVolume">$0 Vol.</div>
+        </div>
+        <div class="selected-outcome-right">
+          <div class="selected-outcome-label">% CHANCE</div>
+          <div class="selected-outcome-percent" id="selectedOutcomePercent">--</div>
+        </div>
+      </div>
+      
+      <div class="market-detail-buy-buttons">
+        <button class="buy-btn buy-btn-yes" id="marketDetailBuyYes">
+          <span class="buy-btn-label">Buy</span>
+          <span class="buy-btn-outcome" id="buyYesOutcome">Yes</span>
+          <span class="buy-btn-price" id="buyYesPrice">--¢</span>
+        </button>
+        <button class="buy-btn buy-btn-no" id="marketDetailBuyNo">
+          <span class="buy-btn-label">Buy</span>
+          <span class="buy-btn-outcome" id="buyNoOutcome">No</span>
+          <span class="buy-btn-price" id="buyNoPrice">--¢</span>
+        </button>
       </div>
     </div>
   </div>
@@ -1563,6 +1898,7 @@
       selectedSportType: null, // 'games' or 'props'
       tradeSide: 'yes',
       selectedOutcomeIndex: 0,
+      selectedSubFilter: 'all',
     };
 
     // =====================
@@ -2044,6 +2380,46 @@
     // =====================
     // CATEGORIES
     // =====================
+    function showSubFilters(category) {
+      const subFiltersContainer = document.getElementById('subFilters');
+      
+      // Define sub-filters for each category (based on popular tags)
+      const subFiltersMap = {
+        'politics': ['All', 'Trump', 'Biden', 'Election', 'Breaking News'],
+        'sports': ['All', 'NFL', 'NBA', 'MLB', 'NHL'],
+        'crypto': ['All', 'Bitcoin', 'Ethereum', 'Solana', 'DeFi'],
+        'finance': ['All', 'Fed', 'Stocks', 'Economy', 'Earnings'],
+        'tech': ['All', 'AI', 'Apple', 'Google', 'Meta'],
+        'geopolitics': ['All', 'Ukraine', 'Middle East', 'China', 'Russia'],
+      };
+      
+      const filters = subFiltersMap[category.toLowerCase()];
+      if (filters && filters.length > 0) {
+        subFiltersContainer.innerHTML = filters.map((filter, index) => `
+          <button class="sub-filter-btn ${index === 0 ? 'active' : ''}" 
+                  data-filter="${filter.toLowerCase()}">
+            ${filter}
+          </button>
+        `).join('');
+        
+        subFiltersContainer.style.display = 'flex';
+        
+        // Add click handlers
+        subFiltersContainer.querySelectorAll('.sub-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            hapticFeedback('light');
+            subFiltersContainer.querySelectorAll('.sub-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.selectedSubFilter = btn.dataset.filter;
+            // Re-fetch markets with sub-filter
+            fetchMarkets(category);
+          });
+        });
+      } else {
+        subFiltersContainer.style.display = 'none';
+      }
+    }
+
     async function fetchCategories() {
       try {
         const resp = await fetch('/api/categories');
@@ -2092,6 +2468,8 @@
               } else {
                 // Fetch markets for this category
                 fetchMarkets(kind);
+                // Show sub-filters if available for this category
+                showSubFilters(kind);
               }
             });
           });
@@ -2333,7 +2711,7 @@
                   const vol = m.volume24hr || m.volume || 0;
                   
                   return `
-                    <div class="market-outcome-item" data-id="${m.id}">
+                    <div class="market-outcome-item" data-id="${m.id}" data-market-id="${m.id}" style="cursor: pointer;">
                       <div class="outcome-label">${m.question}</div>
                       <div class="outcome-buttons">
                         ${outcomes.map((outcome, idx) => {
@@ -2483,9 +2861,244 @@
     // =====================
     // TRADE MODAL
     // =====================
-    function openTradeModal(market) {
+    function openMarketDetail(market) {
       hapticFeedback('medium');
       state.selectedMarket = market;
+      
+      // Hide main app, show detail view
+      document.getElementById('appShell').style.display = 'none';
+      document.getElementById('marketDetailView').style.display = 'block';
+      
+      // Populate detail view
+      const title = document.getElementById('marketDetailTitle');
+      title.textContent = market.question || market.eventTitle || 'Market Details';
+      
+      const volume = document.getElementById('marketDetailVolume');
+      const vol = market.volume24hr || market.volume || 0;
+      volume.textContent = `$${formatVolume(vol)} Vol.`;
+      
+      const event = document.getElementById('marketDetailEvent');
+      if (market.eventTitle) {
+        event.innerHTML = `
+          ${market.eventImage ? `<img src="${market.eventImage}" alt="" />` : ''}
+          <span>${market.eventTitle}</span>
+        `;
+      } else {
+        event.innerHTML = '';
+      }
+      
+      // Render outcomes list
+      const outcomesList = document.getElementById('marketDetailOutcomesList');
+      const outcomes = market.outcomes || ["Yes", "No"];
+      const prices = market.outcomePrices || [];
+      const colors = ['blue', 'green', 'orange', 'red', 'purple', 'pink'];
+      
+      outcomesList.innerHTML = outcomes.map((outcome, index) => {
+        const price = prices[index] !== undefined ? parseFloat(prices[index]) : 0.5;
+        const percent = (price * 100).toFixed(1);
+        const color = colors[index % colors.length];
+        const isSelected = index === 0;
+        
+        return `
+          <div class="outcome-item ${isSelected ? 'selected' : ''}" 
+               data-outcome-index="${index}"
+               data-outcome="${outcome}">
+            <div class="outcome-dot ${color}"></div>
+            <div class="outcome-label">${outcome}</div>
+            <div class="outcome-percent">${percent}%</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Add click handlers for outcomes
+      outcomesList.querySelectorAll('.outcome-item').forEach(item => {
+        item.addEventListener('click', () => {
+          outcomesList.querySelectorAll('.outcome-item').forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          updateMarketDetailSelectedOutcome(market, parseInt(item.dataset.outcomeIndex));
+        });
+      });
+      
+      // Set default selected outcome
+      if (outcomes.length > 0) {
+        updateMarketDetailSelectedOutcome(market, 0);
+      }
+      
+      // Initialize graph
+      initializeMarketGraph(market);
+      
+      // Setup buy buttons
+      setupMarketDetailBuyButtons(market);
+    }
+    
+    function updateMarketDetailSelectedOutcome(market, outcomeIndex) {
+      const outcomes = market.outcomes || ["Yes", "No"];
+      const prices = market.outcomePrices || [];
+      const outcome = outcomes[outcomeIndex] || 'Yes';
+      const price = prices[outcomeIndex] !== undefined ? parseFloat(prices[outcomeIndex]) : 0.5;
+      const percent = (price * 100).toFixed(1);
+      
+      document.getElementById('selectedOutcomeName').textContent = outcome;
+      document.getElementById('selectedOutcomePercent').textContent = `${percent}%`;
+      document.getElementById('selectedOutcomeVolume').textContent = '$0 Vol.'; // TODO: Get actual volume for this outcome
+    }
+    
+    function initializeMarketGraph(market) {
+      const canvas = document.getElementById('marketDetailGraph');
+      const ctx = canvas.getContext('2d');
+      const outcomes = market.outcomes || ["Yes", "No"];
+      const prices = market.outcomePrices || [];
+      
+      // Generate mock historical data (in production, fetch from API)
+      const timeRanges = {
+        '1H': 60,
+        '6H': 360,
+        '1D': 1440,
+        '1W': 10080,
+        '1M': 43200,
+        'ALL': 10080
+      };
+      
+      let currentRange = 'ALL';
+      
+      function drawGraph(range = 'ALL') {
+        const points = timeRanges[range] || 10080;
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+          const y = (height / 10) * i;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        
+        // Draw lines for each outcome
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        outcomes.forEach((outcome, index) => {
+          const color = colors[index % colors.length];
+          const basePrice = prices[index] !== undefined ? parseFloat(prices[index]) : 0.5;
+          
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          
+          // Generate mock data points
+          for (let i = 0; i < points; i += Math.max(1, Math.floor(points / 100))) {
+            const x = (width / points) * i;
+            // Simulate price movement around base price
+            const variation = (Math.sin(i / 10) * 0.1) + (Math.random() * 0.05 - 0.025);
+            const price = Math.max(0.01, Math.min(0.99, basePrice + variation));
+            const y = height - (price * height);
+            
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          
+          ctx.stroke();
+        });
+      }
+      
+      // Time range selector handlers
+      document.querySelectorAll('.time-selector').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.time-selector').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentRange = btn.dataset.range;
+          drawGraph(currentRange);
+        });
+      });
+      
+      drawGraph(currentRange);
+    }
+    
+    function setupMarketDetailBuyButtons(market) {
+      const outcomes = market.outcomes || ["Yes", "No"];
+      const prices = market.outcomePrices || [];
+      
+      // Setup Yes button (first outcome)
+      const buyYesBtn = document.getElementById('marketDetailBuyYes');
+      const yesPrice = prices[0] !== undefined ? (parseFloat(prices[0]) * 100).toFixed(0) : '50';
+      document.getElementById('buyYesOutcome').textContent = outcomes[0] || 'Yes';
+      document.getElementById('buyYesPrice').textContent = `${yesPrice}¢`;
+      
+      buyYesBtn.addEventListener('click', () => {
+        hapticFeedback('medium');
+        state.selectedOutcomeIndex = 0;
+        state.tradeSide = outcomes[0] || 'Yes';
+        closeMarketDetail();
+        openTradeModal(market);
+      });
+      
+      // Setup No button (second outcome if exists, otherwise opposite)
+      const buyNoBtn = document.getElementById('marketDetailBuyNo');
+      const noIndex = outcomes.length > 1 ? 1 : 0;
+      const noPrice = prices[noIndex] !== undefined ? (parseFloat(prices[noIndex]) * 100).toFixed(0) : '50';
+      document.getElementById('buyNoOutcome').textContent = outcomes[noIndex] || 'No';
+      document.getElementById('buyNoPrice').textContent = `${noPrice}¢`;
+      
+      buyNoBtn.addEventListener('click', () => {
+        hapticFeedback('medium');
+        state.selectedOutcomeIndex = noIndex;
+        state.tradeSide = outcomes[noIndex] || 'No';
+        closeMarketDetail();
+        openTradeModal(market);
+      });
+    }
+    
+    function closeMarketDetail() {
+      document.getElementById('marketDetailView').style.display = 'none';
+      document.getElementById('appShell').style.display = 'block';
+    }
+    
+    // Back button handler
+    document.getElementById('marketDetailBack')?.addEventListener('click', () => {
+      hapticFeedback('light');
+      closeMarketDetail();
+    });
+    
+    // Share button handler
+    document.getElementById('marketDetailShare')?.addEventListener('click', () => {
+      hapticFeedback('light');
+      if (navigator.share && state.selectedMarket) {
+        navigator.share({
+          title: state.selectedMarket.question,
+          text: `Check out this market on Polygram`,
+          url: window.location.href
+        }).catch(() => {
+          // Fallback: copy to clipboard
+          navigator.clipboard.writeText(window.location.href);
+        });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+      }
+    });
+    
+    // Bookmark button handler
+    document.getElementById('marketDetailBookmark')?.addEventListener('click', () => {
+      hapticFeedback('light');
+      // TODO: Implement bookmark functionality
+      const btn = document.getElementById('marketDetailBookmark');
+      btn.classList.toggle('bookmarked');
+    });
+
+    function openTradeModal(market, outcomeIndex) {
+      hapticFeedback('medium');
+      state.selectedMarket = market;
+      
+      // Use provided outcomeIndex or default
+      if (outcomeIndex !== undefined) {
+        state.selectedOutcomeIndex = outcomeIndex;
+      }
 
       // Get all outcomes and prices
       const outcomes = market.outcomes || ["Yes", "No"];
