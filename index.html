@@ -19,19 +19,19 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     :root {
-      --bg: #d4eef4;
-      --card: #c8e8f0;
-      --text: #1a3a4a;
-      --text-muted: #4a7080;
-      --accent: #1e3a5f;
-      --accent-light: #a8f0c8;
-      --accent-pink: #ec4899;
-      --green: #7cf0a8;
-      --green-soft: #a8f0c8;
-      --red: #ef4444;
-      --border: #b8dce8;
-      --bg-secondary: #e0f4f8;
-      --card-hover: #b8e0e8;
+      --bg: #EAF5FB;
+      --card: #d8edf8;
+      --text: #687E90;
+      --text-muted: #8a9ba8;
+      --accent: #687E90;
+      --accent-light: #8BAC8C;
+      --accent-pink: #8BAC8C;
+      --green: #8BAC8C;
+      --green-soft: #a8c5a8;
+      --red: #d97777;
+      --border: #c5d9e8;
+      --bg-secondary: #e0f0f8;
+      --card-hover: #c8e0f0;
       --radius: 24px;
       --radius-sm: 16px;
       --shadow: none;
@@ -1423,12 +1423,12 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .outcome-dot.blue { background: #3b82f6; }
-    .outcome-dot.green { background: #10b981; }
-    .outcome-dot.orange { background: #f59e0b; }
-    .outcome-dot.red { background: #ef4444; }
-    .outcome-dot.purple { background: #8b5cf6; }
-    .outcome-dot.pink { background: #ec4899; }
+    .outcome-dot.blue { background: #687E90; }
+    .outcome-dot.green { background: #8BAC8C; }
+    .outcome-dot.orange { background: #9bb5a8; }
+    .outcome-dot.red { background: #a8c5a8; }
+    .outcome-dot.purple { background: #b5d5b8; }
+    .outcome-dot.pink { background: #c2e5c8; }
     .outcome-label {
       flex: 1;
       font-size: 14px;
@@ -3046,8 +3046,8 @@
           ctx.fillText(`${percent}%`, 4, y + 4);
         }
         
-        // Draw lines for each outcome
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        // Draw lines for each outcome (using new color scheme)
+        const colors = ['#687E90', '#8BAC8C', '#9bb5a8', '#a8c5a8', '#b5d5b8', '#c2e5c8'];
         
         if (historyData && historyData.length > 0) {
           // Use real historical data from API
