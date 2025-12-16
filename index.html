@@ -2962,13 +2962,18 @@
     
     // Get market color (for backward compatibility, returns a default color)
     function getMarketColor(market) {
-      // For NFL games with teams, return first team color as default
-      const question = (market.question || '').toLowerCase();
-      const eventTitle = (market.eventTitle || '').toLowerCase();
-      const allText = `${question} ${eventTitle}`.toLowerCase();
-      const teamName = extractTeamName(allText);
-      if (teamName && NFL_TEAM_COLORS[teamName]) {
-        return NFL_TEAM_COLORS[teamName];
+      if (!market) return '#003366'; // Default fallback
+      try {
+        // For NFL games with teams, return first team color as default
+        const question = (market.question || '').toLowerCase();
+        const eventTitle = (market.eventTitle || '').toLowerCase();
+        const allText = `${question} ${eventTitle}`.toLowerCase();
+        const teamName = extractTeamName(allText);
+        if (teamName && NFL_TEAM_COLORS[teamName]) {
+          return NFL_TEAM_COLORS[teamName];
+        }
+      } catch (e) {
+        console.error('[getMarketColor] Error:', e);
       }
       return '#003366'; // Default blue
     }
