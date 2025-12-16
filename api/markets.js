@@ -1260,10 +1260,19 @@ module.exports = async (req, res) => {
               });
               
               // Add game markets that aren't already included
+              // Ensure volume fields are preserved correctly
               for (const market of gameMarkets) {
                 const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
                 if (!existing) {
-                  markets.push(market);
+                  // Ensure all volume fields are preserved from the market object
+                  markets.push({
+                    ...market,
+                    // Explicitly preserve volume fields
+                    volume: market.volume !== undefined ? market.volume : 0,
+                    volume24hr: market.volume24hr !== undefined ? market.volume24hr : (market.volume24h !== undefined ? market.volume24h : 0),
+                    volume1wk: market.volume1wk !== undefined ? market.volume1wk : (market.volume1w !== undefined ? market.volume1w : 0),
+                    liquidity: market.liquidity !== undefined ? market.liquidity : 0,
+                  });
                 }
               }
               console.log("[markets] Added", gameMarkets.length, "NFL game markets from direct market search");
