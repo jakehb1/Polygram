@@ -3102,7 +3102,7 @@
                   </div>
                 </div>
               </div>
-              <div class="event-markets" data-event-markets="${event.eventId}">
+              <div class="event-markets" data-event-markets="${event.eventId}" style="padding: 12px 16px;">
                 ${event.markets.map(m => {
                   const prices = m.outcomePrices || [];
                   const outcomes = m.outcomes || ["Yes", "No"];
