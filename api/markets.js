@@ -20,8 +20,8 @@ const CATEGORY_TAG_IDS = {
   'elections': 377,
 };
 
-function getCacheKey(kind, sportType) {
-  return `${kind}_${sportType || 'all'}`;
+function getCacheKey(kind, sportType, platform = 'polymarket') {
+  return `${platform}_${kind}_${sportType || 'all'}`;
 }
 
 function getCached(key) {
@@ -50,7 +50,36 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
 
-  const { kind = "trending", limit = "1000", sportType = null } = req.query;
+  const { kind = "trending", limit = "1000", sportType = null, platform = "polymarket" } = req.query;
+  
+  // Route to appropriate platform handler
+  const platformLower = (platform || "polymarket").toLowerCase();
+  
+  if (platformLower === "kalshi") {
+    // Handle Kalshi requests
+    try {
+      const { fetchKalshiMarkets } = require("./kalshi-markets");
+      const markets = await fetchKalshiMarkets({
+        kind,
+        limit: Math.min(Math.max(Number(limit) || 1000, 1), 10000),
+        sportType,
+      });
+      
+      return res.status(200).json({
+        markets: markets,
+        meta: { total: markets.length, kind, platform: "kalshi" },
+      });
+    } catch (error) {
+      console.error("[markets] Kalshi error:", error.message);
+      return res.status(500).json({
+        error: "kalshi_fetch_failed",
+        message: error.message,
+        markets: [],
+      });
+    }
+  }
+  
+  // Default to Polymarket (existing logic continues below)
   // Allow much higher limits to get all markets (default 1000, max 10000)
   const limitNum = Math.min(Math.max(Number(limit) || 1000, 1), 10000);
   // Parse minVolume - default to $0.01 to filter out zero-volume markets but allow very low volume
@@ -61,8 +90,8 @@ module.exports = async (req, res) => {
   // sportType: "games" or "props" - used to filter sports markets
 
   // Check cache first (only for reasonable limits to avoid caching huge responses)
-  if (limitNum <= 1000) {
-    const cacheKey = getCacheKey(kind, sportType);
+  if (limitNum <= 1000 && platformLower === "polymarket") {
+    const cacheKey = getCacheKey(kind, sportType, platformLower);
     const cached = getCached(cacheKey);
     if (cached) {
       console.log("[markets] Returning cached data for:", cacheKey);
@@ -1776,17 +1805,20 @@ module.exports = async (req, res) => {
     });
 
     console.log("[markets] Returning", transformed.length, "for:", kind);
+    // #region agent log
+    try { fs.appendFileSync(logPath, JSON.stringify({location:'api/markets.js:1778',message:'Final response',data:{kind, marketCount: transformed.length, sampleQuestions: transformed.slice(0, 3).map(m => m.question?.substring(0, 50))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'}) + '\n'); } catch(e) {}
+    // #endregion
 
     const response = { 
       markets: transformed,
-      meta: { total: transformed.length, kind }
+      meta: { total: transformed.length, kind, platform: "polymarket" }
     };
 
-    // Cache the response (only for reasonable limits)
-    if (limitNum <= 1000) {
-      const cacheKey = getCacheKey(kind, sportType);
-      setCache(cacheKey, response);
-    }
+      // Cache the response (only for reasonable limits)
+      if (limitNum <= 1000) {
+        const cacheKey = getCacheKey(kind, sportType, "polymarket");
+        setCache(cacheKey, response);
+      }
 
       return res.status(200).json(response);
     } // End of API fallback block

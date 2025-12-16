@@ -247,9 +247,16 @@
     .header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
       margin-bottom: 20px;
       padding: 8px 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
     }
     .header-logo {
       display: flex;
@@ -265,6 +272,34 @@
       font-weight: 800;
       color: var(--text);
       letter-spacing: -0.02em;
+    }
+    .platform-selector {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      border-radius: 20px;
+      padding: 4px;
+      border: 1px solid var(--border);
+    }
+    .platform-btn {
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .platform-btn:hover {
+      color: var(--text);
+    }
+    .platform-btn.active {
+      background: var(--accent);
+      color: white;
     }
 
     /* Cards */
@@ -1648,9 +1683,15 @@
   <div class="app-shell" id="appShell">
     <!-- Header -->
     <header class="header">
-      <div class="header-logo">
-        <span class="header-logo-icon">✦</span>
-        <span class="header-logo-text">Polygram</span>
+      <div class="header-left">
+        <div class="header-logo">
+          <span class="header-logo-icon">✦</span>
+          <span class="header-logo-text">Polygram</span>
+        </div>
+      </div>
+      <div class="platform-selector">
+        <button class="platform-btn active" data-platform="polymarket" id="platformPolymarket">Polymarket</button>
+        <button class="platform-btn" data-platform="kalshi" id="platformKalshi">Kalshi</button>
       </div>
     </header>
 
@@ -1917,6 +1958,7 @@
       selectedMarket: null,
       selectedCategory: null,
       selectedSportType: null, // 'games' or 'props'
+      selectedPlatform: 'polymarket', // 'polymarket' or 'kalshi'
       tradeSide: 'yes',
       selectedOutcomeIndex: 0,
       selectedSubFilter: 'all',
@@ -2590,15 +2632,21 @@
       list.innerHTML = '<div class="loading">Loading markets...</div>';
 
       try {
-        console.log('[fetchMarkets] Fetching:', kind, 'sportType:', sportType);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/cf0ac01b-cbf1-4c16-aaa3-32490620eb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:2588',message:'fetchMarkets called',data:{kind, sportType, selectedCategory: state.selectedCategory},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        console.log('[fetchMarkets] Fetching:', kind, 'sportType:', sportType, 'platform:', state.selectedPlatform);
         // Reduce limit for faster loading - 1000 markets is plenty for initial display
         // Only show markets with volume - filter out zero-volume markets (use $0.01 minimum)
-        let apiUrl = `/api/markets?kind=${kind}&limit=1000&minVolume=0.01`;
+        let apiUrl = `/api/markets?kind=${kind}&limit=1000&minVolume=0.01&platform=${state.selectedPlatform || 'polymarket'}`;
         if (sportType) {
           apiUrl += `&sportType=${sportType}`;
         }
         console.log('[fetchMarkets] URL:', apiUrl);
         
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/cf0ac01b-cbf1-4c16-aaa3-32490620eb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:2596',message:'API request URL',data:{apiUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         const resp = await fetch(apiUrl);
         console.log('[fetchMarkets] Status:', resp.status, resp.statusText);
         
@@ -2609,12 +2657,18 @@
         }
         
         const data = await resp.json();
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/cf0ac01b-cbf1-4c16-aaa3-32490620eb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:2611',message:'API response received',data:{marketCount: data.markets?.length || 0, meta: data.meta, firstMarketQuestion: data.markets?.[0]?.question, firstMarketCategory: data.markets?.[0]?.eventTitle},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         console.log('[fetchMarkets] Response data:', data);
         console.log('[fetchMarkets] Markets count:', data.markets?.length || 0);
         
         const markets = data.markets || [];
         
         if (markets.length > 0) {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/cf0ac01b-cbf1-4c16-aaa3-32490620eb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:2617',message:'Markets before render',data:{marketCount: markets.length, sampleMarkets: markets.slice(0, 3).map(m => ({question: m.question, eventTitle: m.eventTitle, volume: m.volume24hr}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           console.log('[fetchMarkets] First market:', markets[0]);
           state.markets = markets;
           renderMarkets(markets);
@@ -2623,6 +2677,9 @@
           list.innerHTML = `<div class="loading">No markets found. <br><small style="color:var(--text-muted)">API responded but returned 0 markets</small></div>`;
         }
       } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/cf0ac01b-cbf1-4c16-aaa3-32490620eb9e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:2625',message:'fetchMarkets error',data:{error: err.message, stack: err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         console.error('[fetchMarkets] Error:', err);
         list.innerHTML = `
           <div class="loading" style="color:#d97777;">
@@ -3790,6 +3847,31 @@
       });
     }
 
+    function initPlatformSelector() {
+      // Handle platform selector clicks
+      document.querySelectorAll('.platform-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const platform = btn.dataset.platform;
+          if (platform === state.selectedPlatform) return; // Already selected
+          
+          hapticFeedback('light');
+          
+          // Update active state
+          document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          // Update state
+          state.selectedPlatform = platform;
+          
+          console.log('[platform] Switched to:', platform);
+          
+          // Reload markets with new platform
+          // Keep current category/sportType selection
+          fetchMarkets(state.selectedCategory || 'trending', state.selectedSportType);
+        });
+      });
+    }
+
     function initFundModal() {
       // Close on backdrop click
       document.getElementById('fundModal').addEventListener('click', (e) => {
@@ -3841,6 +3923,7 @@
     async function bootstrapApp() {
       console.log('Bootstrapping app...');
       initTelegram();
+      initPlatformSelector();
       initModeChips();
       initTradeModal();
       initFundModal();
