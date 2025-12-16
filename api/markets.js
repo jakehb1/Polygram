@@ -1710,21 +1710,20 @@ module.exports = async (req, res) => {
       });
       console.log("[markets] After games-only filter:", markets.length, "(removed", beforeFilter - markets.length, "non-game markets)");
       
-      // Additional filter: Remove outdated games (past week or too far in future)
+      // Additional filter: Remove games that have already happened
       const beforeDateFilter = markets.length;
       markets = markets.filter(m => {
         // Check event start date if available
         if (m.eventStartDate) {
           const eventStart = new Date(m.eventStartDate);
-          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-          
-          // Skip games that already happened (more than 7 days ago - more permissive)
-          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (eventStart < oneWeekAgo) {
-            return false;
+          const now = new Date();
+          // Exclude games that started more than 3 hours ago (games typically last ~3 hours)
+          // This ensures we only show active/upcoming games, not past games
+          const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+          if (eventStart < threeHoursAgo) {
+            return false; // Skip games that already happened
           }
-          // Don't filter future games - show all upcoming games (removed 2 week limit)
+          // Don't filter future games - show all upcoming games
         }
         
         // Check week number from event tags or title
