@@ -1117,8 +1117,16 @@ module.exports = async (req, res) => {
                   
                   const existing = markets.find(m => (m.id || m.conditionId) === (market.id || market.conditionId));
                   if (!existing) {
+                    // CRITICAL: Preserve ALL market volume fields - these must come from market, not event
+                    // Market volumes are individual per market, event volumes are aggregate
                     markets.push({
-                      ...market,
+                      ...market, // Spread all market fields first
+                      // Explicitly preserve volume fields from market (handle different API field name variations)
+                      volume: market.volume !== undefined ? market.volume : (typeof market.volume === 'string' ? parseFloat(market.volume) || 0 : 0),
+                      volume24hr: market.volume24hr !== undefined ? market.volume24hr : (market.volume24h !== undefined ? market.volume24h : (typeof market.volume24hr === 'string' ? parseFloat(market.volume24hr) || 0 : 0)),
+                      volume1wk: market.volume1wk !== undefined ? market.volume1wk : (market.volume1w !== undefined ? market.volume1w : (typeof market.volume1wk === 'string' ? parseFloat(market.volume1wk) || 0 : 0)),
+                      liquidity: market.liquidity !== undefined ? market.liquidity : (typeof market.liquidity === 'string' ? parseFloat(market.liquidity) || 0 : 0),
+                      // Add event metadata (these are separate from market fields)
                       eventId: event.id,
                       eventTitle: event.title,
                       eventSlug: event.slug,
@@ -1126,8 +1134,8 @@ module.exports = async (req, res) => {
                       eventStartDate: event.startDate,
                       eventEndDate: event.endDate,
                       eventImage: event.image || event.icon,
-                      eventVolume: event.volume,
-                      eventLiquidity: event.liquidity,
+                      eventVolume: event.volume, // Event volume is aggregate - separate from market volume
+                      eventLiquidity: event.liquidity, // Event liquidity is aggregate - separate from market liquidity
                       eventTags: event.tags || [],
                     });
                   }
