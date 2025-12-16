@@ -1138,6 +1138,19 @@ module.exports = async (req, res) => {
                   continue;
                 }
                 
+                // Exclude games that have already happened
+                if (event.startDate) {
+                  const eventStart = new Date(event.startDate);
+                  const now = new Date();
+                  // If event start time is more than 3 hours in the past, exclude it
+                  // (games typically last ~3 hours, so 3 hours after start means game is likely over)
+                  const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+                  if (eventStart < threeHoursAgo) {
+                    console.log("[markets] Excluding past game:", event.title, "started:", eventStart.toISOString());
+                    continue; // Skip games that already happened
+                  }
+                }
+                
                 matchedEvents++;
                 // Log event details including date for debugging
                 const eventDateStr = event.startDate ? new Date(event.startDate).toISOString() : 'no date';
