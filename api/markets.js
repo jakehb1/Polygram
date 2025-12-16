@@ -1084,9 +1084,42 @@ module.exports = async (req, res) => {
                 const eventSlug = (event.slug || "").toLowerCase();
                 const eventText = `${eventTitle} ${eventSlug}`.toLowerCase();
                 
-                // Exclude college/NCAA football explicitly
-                if (/ncaa|cfb|college\s+football|espn\s+college/i.test(eventText)) {
+                // Exclude college/NCAA football explicitly - be very aggressive
+                // Check for NCAA, college football, college team indicators
+                const collegeIndicators = [
+                  'ncaa', 'cfb', 'college football', 'college', 'espn college',
+                  'state bulldogs', 'state', 'university', 'uni', 'school',
+                  'south carolina state', 'jacksonville state', 'troy state',
+                  'aggies', 'crimson tide', 'sooners', 'longhorns', 'tigers',
+                  'wildcats', 'bulldogs', 'eagles', 'hawks', 'wolverines'
+                ];
+                const hasCollegeIndicator = collegeIndicators.some(indicator => 
+                  eventText.includes(indicator)
+                );
+                // Also check if it has "State" in team names (NFL teams don't have "State")
+                const hasStateInName = /\b\w+\s+state\b/i.test(eventTitle);
+                if (hasCollegeIndicator || hasStateInName) {
+                  console.log("[markets] Excluding college game:", event.title);
                   continue;
+                }
+                
+                // Must have at least one NFL team keyword to be included
+                const nflTeamKeywords = [
+                  'bills', 'buffalo bills', 'dolphins', 'miami dolphins', 'patriots', 'new england patriots', 'jets', 'new york jets',
+                  'ravens', 'baltimore ravens', 'bengals', 'cincinnati bengals', 'browns', 'cleveland browns', 'steelers', 'pittsburgh steelers',
+                  'texans', 'houston texans', 'colts', 'indianapolis colts', 'jaguars', 'jacksonville jaguars', 'titans', 'tennessee titans',
+                  'broncos', 'denver broncos', 'chiefs', 'kansas city chiefs', 'raiders', 'las vegas raiders', 'chargers', 'los angeles chargers',
+                  'cowboys', 'dallas cowboys', 'giants', 'new york giants', 'eagles', 'philadelphia eagles', 'commanders', 'washington commanders',
+                  'bears', 'chicago bears', 'lions', 'detroit lions', 'packers', 'green bay packers', 'vikings', 'minnesota vikings',
+                  'falcons', 'atlanta falcons', 'panthers', 'carolina panthers', 'saints', 'new orleans saints', 'buccaneers', 'tampa bay buccaneers',
+                  'cardinals', 'arizona cardinals', 'rams', 'los angeles rams', '49ers', 'san francisco 49ers', 'seahawks', 'seattle seahawks',
+                  'buf', 'mia', 'ne', 'nyj', 'bal', 'cin', 'cle', 'pit', 'hou', 'ind', 'jax', 'ten', 'den', 'kc', 'lv', 'lac',
+                  'dal', 'nyg', 'phi', 'was', 'wsh', 'chi', 'det', 'gb', 'min', 'atl', 'car', 'no', 'tb', 'ari', 'lar', 'sf', 'sea'
+                ];
+                const hasNflTeam = nflTeamKeywords.some(team => eventText.includes(team.toLowerCase()));
+                if (!hasNflTeam) {
+                  console.log("[markets] No NFL team found in event:", event.title);
+                  continue; // Skip if no NFL team keywords found
                 }
                 
                 // Extract and filter by week
@@ -1139,13 +1172,16 @@ module.exports = async (req, res) => {
                 }
                 
                 // Exclude games that have already happened
+                // Only exclude if we have a startDate - if no date, include it (might be upcoming)
                 if (event.startDate) {
                   const eventStart = new Date(event.startDate);
                   const now = new Date();
                   // If event start time is more than 3 hours in the past, exclude it
                   // (games typically last ~3 hours, so 3 hours after start means game is likely over)
                   const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-                  if (eventStart < threeHoursAgo) {
+                  if (isNaN(eventStart.getTime())) {
+                    console.log("[markets] Invalid event startDate, including event:", event.title);
+                  } else if (eventStart < threeHoursAgo) {
                     console.log("[markets] Excluding past game:", event.title, "started:", eventStart.toISOString());
                     continue; // Skip games that already happened
                   }
