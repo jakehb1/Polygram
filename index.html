@@ -2076,84 +2076,129 @@
       'rams': '#003594', // Rams Blue
       'los angeles rams': '#003594',
       'lar': '#003594',
+      'la': '#003594',
       '49ers': '#AA0000', // 49ers Red
       'san francisco 49ers': '#AA0000',
       'sf': '#AA0000',
       'cowboys': '#003594', // Cowboys Blue
       'dallas cowboys': '#003594',
+      'dal': '#003594',
       'packers': '#203731', // Packers Green
       'green bay packers': '#203731',
+      'gb': '#203731',
       'bears': '#0B162A', // Bears Navy
       'chicago bears': '#0B162A',
+      'chi': '#0B162A',
       'vikings': '#4F2683', // Vikings Purple
       'minnesota vikings': '#4F2683',
+      'min': '#4F2683',
       'lions': '#0076B6', // Lions Blue
       'detroit lions': '#0076B6',
+      'det': '#0076B6',
       'saints': '#D3BC8D', // Saints Gold
       'new orleans saints': '#D3BC8D',
+      'no': '#D3BC8D',
       'falcons': '#A71930', // Falcons Red
       'atlanta falcons': '#A71930',
+      'atl': '#A71930',
       'panthers': '#0085CA', // Panthers Blue
       'carolina panthers': '#0085CA',
+      'car': '#0085CA',
       'buccaneers': '#D50A0A', // Bucs Red
       'tampa bay buccaneers': '#D50A0A',
+      'tb': '#D50A0A',
       'cardinals': '#97233F', // Cardinals Red
       'arizona cardinals': '#97233F',
+      'ari': '#97233F',
       'seahawks': '#002244', // Seahawks Blue
       'seattle seahawks': '#002244',
+      'sea': '#002244',
       'commanders': '#5A1414', // Commanders Burgundy
       'washington commanders': '#5A1414',
+      'was': '#5A1414',
+      'wsh': '#5A1414',
       'giants': '#0B2265', // Giants Blue
       'new york giants': '#0B2265',
+      'nyg': '#0B2265',
       'eagles': '#004C54', // Eagles Green
       'philadelphia eagles': '#004C54',
+      'phi': '#004C54',
       
       // AFC
       'broncos': '#FB4F14', // Broncos Orange
       'denver broncos': '#FB4F14',
+      'den': '#FB4F14',
       'chiefs': '#E31837', // Chiefs Red
       'kansas city chiefs': '#E31837',
+      'kc': '#E31837',
       'raiders': '#000000', // Raiders Black
       'las vegas raiders': '#000000',
+      'lv': '#000000',
       'chargers': '#0080C6', // Chargers Blue
       'los angeles chargers': '#0080C6',
+      'lac': '#0080C6',
       'patriots': '#002244', // Patriots Blue
       'new england patriots': '#002244',
+      'ne': '#002244',
       'jets': '#125740', // Jets Green
       'new york jets': '#125740',
+      'nyj': '#125740',
       'bills': '#00338D', // Bills Blue
       'buffalo bills': '#00338D',
+      'buf': '#00338D',
       'dolphins': '#008E97', // Dolphins Teal
       'miami dolphins': '#008E97',
+      'mia': '#008E97',
       'ravens': '#241773', // Ravens Purple
       'baltimore ravens': '#241773',
+      'bal': '#241773',
       'bengals': '#FB4F14', // Bengals Orange
       'cincinnati bengals': '#FB4F14',
+      'cin': '#FB4F14',
       'browns': '#311D00', // Browns Brown
       'cleveland browns': '#311D00',
+      'cle': '#311D00',
       'steelers': '#FFB612', // Steelers Gold
       'pittsburgh steelers': '#FFB612',
+      'pit': '#FFB612',
       'texans': '#03202F', // Texans Navy
       'houston texans': '#03202F',
+      'hou': '#03202F',
       'colts': '#002C5F', // Colts Blue
       'indianapolis colts': '#002C5F',
+      'ind': '#002C5F',
       'jaguars': '#006778', // Jaguars Teal
       'jacksonville jaguars': '#006778',
+      'jax': '#006778',
       'titans': '#0C2340', // Titans Navy
       'tennessee titans': '#0C2340',
+      'ten': '#0C2340',
     };
 
     /**
      * Extract team name from text (case-insensitive)
+     * Checks for team names/abbreviations using word boundaries to avoid partial matches
      */
     function extractTeamName(text) {
       if (!text) return null;
-      const lowerText = text.toLowerCase();
+      const lowerText = text.toLowerCase().trim();
       
-      // Check for exact team name matches
-      for (const [teamName, color] of Object.entries(NFL_TEAM_COLORS)) {
-        if (lowerText.includes(teamName)) {
-          return teamName;
+      // Sort team names by length (longest first) to match full names before abbreviations
+      const teamEntries = Object.entries(NFL_TEAM_COLORS).sort((a, b) => b[0].length - a[0].length);
+      
+      // Check for exact team name matches (with word boundaries for abbreviations)
+      for (const [teamName, color] of teamEntries) {
+        // For short abbreviations (2-3 chars), use word boundary matching
+        if (teamName.length <= 3) {
+          const regex = new RegExp(`\\b${teamName}\\b`, 'i');
+          if (regex.test(lowerText)) {
+            return teamName;
+          }
+        } else {
+          // For longer names, use substring matching
+          if (lowerText.includes(teamName)) {
+            return teamName;
+          }
         }
       }
       
@@ -2162,7 +2207,9 @@
 
     /**
      * Get team color for an outcome
-     * Returns the team color if the outcome represents a team, otherwise returns market color
+     * Returns the team color if the outcome represents a team
+     * For non-team markets with Yes/No outcomes, uses Polymarket pattern (green for Yes, red for No)
+     * Otherwise generates a color based on market
      */
     function getOutcomeColor(market, outcome, outcomeIndex) {
       if (!market || !outcome) return '#003366'; // Default blue
@@ -2198,6 +2245,20 @@
         } else if (teamsInQuestion.length === 1 && outcomeIndex === 0) {
           // First outcome uses first team's color
           return teamsInQuestion[0].color;
+        }
+      }
+      
+      // For non-team markets: use Polymarket pattern - green for Yes, red for No
+      // Check for Yes/No BEFORE checking teams to avoid conflicts (but only if not a team matchup)
+      const isTeamMatchup = questionLower.includes(' vs ') || questionLower.includes(' vs. ') ||
+                            extractTeamName(questionLower) !== null;
+      
+      if (!isTeamMatchup) {
+        if (outcomeLower === 'yes' || outcomeLower === 'y') {
+          return '#10B981'; // Green (similar to Polymarket's Yes button color)
+        }
+        if (outcomeLower === 'no' || outcomeLower === 'n') {
+          return '#EF4444'; // Red (similar to Polymarket's No button color)
         }
       }
       
