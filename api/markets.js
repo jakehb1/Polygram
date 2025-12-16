@@ -881,10 +881,14 @@ module.exports = async (req, res) => {
               }
             }
             console.log("[markets] Found", markets.length, "markets from events");
+            console.log("[markets] Checked", checkedCount, "events, matched", matchedCount, "NFL game events");
+          } else {
+            console.log("[markets] WARNING: No events returned from API queries");
           }
         }
       } catch (e) {
         console.log("[markets] Error fetching events:", e.message);
+        console.error("[markets] Error stack:", e.stack);
       }
       
       // Strategy 2: Get tag IDs from /sports endpoint (more reliable for NFL)
@@ -1011,6 +1015,8 @@ module.exports = async (req, res) => {
                                'no', 'tb', 'car', 'ari', 'sea', 'was', 'nyg', 'phi', 'chi', 'min'];
               
               console.log("[markets] Searching", allEvents.length, "events for NFL games");
+              console.log("[markets] Current NFL week:", currentWeek);
+              console.log("[markets] Filtering for sportType:", sportType);
               let checkedCount = 0;
               let matchedCount = 0;
               
@@ -1052,10 +1058,10 @@ module.exports = async (req, res) => {
                 const eventWeek = extractWeekNumber(eventTitle) || extractWeekNumber(eventSlug) ||
                                  (eventTags.find(t => t.includes('week')) ? extractWeekNumber(eventTags.find(t => t.includes('week'))) : null);
                 
-                // Filter by current week - show all games for current week (less strict)
+                // Filter by current week - be more permissive to show all relevant games
                 if (eventWeek !== null) {
-                  // Include if week matches current week or is within 2 weeks ahead
-                  if (eventWeek < currentWeek - 2 || eventWeek > currentWeek + 2) {
+                  // Include if week matches current week or is within 4 weeks ahead/behind (more permissive)
+                  if (eventWeek < currentWeek - 4 || eventWeek > currentWeek + 4) {
                     continue; // Skip games from past weeks or too far in future
                   }
                 }
@@ -1063,9 +1069,9 @@ module.exports = async (req, res) => {
                 // Filter by event start date - only exclude games that are clearly in the past
                 if (event.startDate) {
                   const eventStart = new Date(event.startDate);
-                  // Only skip games that started more than 48 hours ago (give buffer for recent games)
-                  const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-                  if (eventStart < twoDaysAgo) {
+                  // Only skip games that started more than 7 days ago (more permissive - show recent games)
+                  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                  if (eventStart < oneWeekAgo) {
                     continue; // Skip games that already happened
                   }
                   // Don't filter future games - show all upcoming games
@@ -1573,14 +1579,12 @@ module.exports = async (req, res) => {
           const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
           const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
           
-          // Skip games that already happened (more than 24 hours ago)
-          if (eventStart < oneDayAgo) {
+          // Skip games that already happened (more than 7 days ago - more permissive)
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (eventStart < oneWeekAgo) {
             return false;
           }
-          // Skip games too far in the future (more than 2 weeks)
-          if (eventStart > twoWeeksFromNow) {
-            return false;
-          }
+          // Don't filter future games - show all upcoming games (removed 2 week limit)
         }
         
         // Check week number from event tags or title
@@ -1602,10 +1606,10 @@ module.exports = async (req, res) => {
           }
         }
         
-        // If we have a week number, filter by current week (less strict)
+        // If we have a week number, filter by current week (more permissive)
         if (eventWeek !== null) {
-          // Include if week matches current week or is within 2 weeks ahead
-          if (eventWeek < currentWeek - 2 || eventWeek > currentWeek + 2) {
+          // Include if week matches current week or is within 4 weeks ahead/behind (more permissive)
+          if (eventWeek < currentWeek - 4 || eventWeek > currentWeek + 4) {
             return false; // Skip games from past weeks or too far in future
           }
         }
