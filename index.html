@@ -2997,6 +2997,18 @@
       }
     }
 
+    // Format volume for display (e.g., 416000 -> "$416k")
+    function formatVolume(volume) {
+      const vol = parseFloat(volume) || 0;
+      if (vol >= 1000000) {
+        return '$' + (vol / 1000000).toFixed(vol >= 10000000 ? 0 : 1) + 'm';
+      } else if (vol >= 1000) {
+        return '$' + (vol / 1000).toFixed(vol >= 10000 ? 0 : 1) + 'k';
+      } else {
+        return '$' + vol.toFixed(0);
+      }
+    }
+
     function renderMarkets(markets) {
       const list = document.getElementById('marketsList');
       
@@ -3030,17 +3042,29 @@
           eventsMap.get(eventId).markets.push(m);
         });
         
-        // Sort events by volume (highest first) before rendering
-        const sortedEvents = Array.from(eventsMap.values()).sort((a, b) => {
-          const volA = a.eventVolume || a.markets.reduce((sum, m) => sum + (m.volume24hr || m.volume || 0), 0);
-          const volB = b.eventVolume || b.markets.reduce((sum, m) => sum + (m.volume24hr || m.volume || 0), 0);
-          return volB - volA;
+        // Calculate total volume for each event (use event volume if available, otherwise sum all market volumes)
+        let sortedEvents = Array.from(eventsMap.values()).map(event => {
+          // Use eventVolume if available (this is the total volume from Polymarket API)
+          // Otherwise, sum all market volumes (use volume, not volume24hr, for total event volume)
+          let totalVol = 0;
+          if (event.eventVolume && parseFloat(event.eventVolume) > 0) {
+            totalVol = parseFloat(event.eventVolume);
+          } else {
+            // Sum all market volumes (use total volume, not 24hr volume, for aggregate)
+            totalVol = event.markets.reduce((sum, m) => {
+              const vol = parseFloat(m.volume) || parseFloat(m.volume24hr) || 0;
+              return sum + vol;
+            }, 0);
+          }
+          return { ...event, totalVolume: totalVol };
         });
+        
+        // Sort events by total volume (highest first)
+        sortedEvents.sort((a, b) => b.totalVolume - a.totalVolume);
         
         // Render events with their markets
         list.innerHTML = sortedEvents.map(event => {
-          const eventVol = event.eventVolume || 
-                          event.markets.reduce((sum, m) => sum + (m.volume24hr || m.volume || 0), 0);
+          const eventVol = event.totalVolume;
           const eventImg = event.eventImage || event.markets[0]?.image || '';
           const hasImage = eventImg && eventImg.trim() !== '';
           
@@ -3066,36 +3090,17 @@
           const outcome2 = primaryOutcomes[1] || 'No';
           
           return `
-            <div class="event-group collapsed" data-event-id="${event.eventId}">
-              <div class="event-header collapsed" data-collapse-target="${event.eventId}">
-                ${hasImage ? `<img class="event-image" src="${eventImg}" alt="" onerror="this.classList.add('hidden')" />` : ''}
-                <div class="event-info">
-                  <div class="event-title">
-                    ${weekLabel ? `<span class="week-tag">${weekLabel}</span>` : ''}
-                    <span class="event-title-text">${event.eventTitle}</span>
+            <div class="event-group" data-event-id="${event.eventId}">
+              <div class="event-header" style="padding: 16px; border-bottom: 1px solid var(--border);">
+                ${hasImage ? `<img class="event-image" src="${eventImg}" alt="" onerror="this.classList.add('hidden')" style="width: 40px; height: 40px; border-radius: 8px; margin-right: 12px; object-fit: cover;" />` : ''}
+                <div class="event-info" style="flex: 1;">
+                  <div class="event-title" style="font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--text);">
+                    ${event.eventTitle}
                   </div>
-                  <div class="event-meta">
-                    <span>Vol: ${formatVolume(eventVol)}</span>
-                    <span>${event.markets.length} market${event.markets.length !== 1 ? 's' : ''}</span>
+                  <div class="event-meta" style="font-size: 14px; color: var(--text-muted);">
+                    ${formatVolume(eventVol)} Vol.
                   </div>
                 </div>
-                <div class="event-primary-prices">
-                  ${primaryPrices.length >= 2 ? `
-                    <button class="event-price-btn event-price-btn-1" 
-                            data-market-id="${moneylineMarket?.id}" 
-                            data-outcome-index="0"
-                            style="background: ${getOutcomeColor(moneylineMarket, outcome1, 0)}; color: white; border-color: ${getOutcomeColor(moneylineMarket, outcome1, 0)};">
-                      ${outcome1} ${price1}
-                    </button>
-                    <button class="event-price-btn event-price-btn-2" 
-                            data-market-id="${moneylineMarket?.id}" 
-                            data-outcome-index="1"
-                            style="background: ${getOutcomeColor(moneylineMarket, outcome2, 1)}; color: white; border-color: ${getOutcomeColor(moneylineMarket, outcome2, 1)};">
-                      ${outcome2} ${price2}
-                    </button>
-                  ` : ''}
-                </div>
-                <div class="event-collapse-icon">▼</div>
               </div>
               <div class="event-markets" data-event-markets="${event.eventId}">
                 ${event.markets.map(m => {
@@ -4324,3 +4329,4 @@
   </script>
 </body>
 </html>
+
