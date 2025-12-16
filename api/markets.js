@@ -732,8 +732,9 @@ module.exports = async (req, res) => {
       }
       
       const isGamesOnly = sportType === "games";
+      const estimatedCurrentWeek = getCurrentNFLWeek();
       console.log("[markets] Fetching NFL games, sportType:", sportType, "gamesOnly:", isGamesOnly);
-      console.log("[markets] Current NFL week (estimated):", currentWeek);
+      console.log("[markets] Current NFL week (estimated):", estimatedCurrentWeek);
       
       // Map sport slugs to common variations for better matching
       const sportVariations = {
@@ -1197,14 +1198,14 @@ module.exports = async (req, res) => {
                     }
                     return eventText.includes(sportLower);
                   });
+                  // Skip college football/NCAA specifically - ALWAYS skip, no exceptions
+                  if (hasCollegeFootball) {
+                    continue; // Skip college football/NCAA markets regardless of NFL mentions
+                  }
+                  
                   // Skip if it mentions other sports (unless it has strong NFL indicators)
                   if (hasOtherSport && !hasNflTag && !hasNflTeam) {
                     continue; // Skip if it's another sport and doesn't have NFL indicators
-                  }
-                  // Also skip college football/NCAA specifically
-                  if ((eventText.includes('college') || eventText.includes('cfb') || eventText.includes('ncaa') || 
-                       eventText.includes('espn college')) && !hasNflTag && !hasNflTeam) {
-                    continue; // Skip college football/NCAA
                   }
                   checkedCount++;
                   // Exclude if it's clearly a prop event
