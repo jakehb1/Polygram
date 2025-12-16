@@ -1547,14 +1547,17 @@ module.exports = async (req, res) => {
       
       markets = markets.filter(m => {
         const marketText = `${m.question || ''} ${m.slug || ''} ${m.eventTitle || ''}`.toLowerCase();
-        // Exclude if it mentions non-NFL sports
-        const mentionsOtherSport = nonNflSports.some(sport => marketText.includes(sport));
-        if (mentionsOtherSport && !marketText.includes('nfl')) {
-          return false;
+        // STRICT: Exclude if it mentions any non-NFL sports (no exceptions)
+        const mentionsOtherSport = nonNflSports.some(sport => marketText.includes(sport.toLowerCase()));
+        if (mentionsOtherSport) {
+          return false; // Strictly exclude - don't allow any non-NFL sports
         }
-        // Must have NFL team or NFL keyword
-        const hasNflIndicator = nflTeamKeywords.some(team => marketText.includes(team)) || marketText.includes('nfl');
-        return hasNflIndicator;
+        // Must have NFL team keyword (positive check)
+        const hasNflIndicator = nflTeamKeywords.some(team => {
+          const teamLower = team.toLowerCase();
+          return marketText.includes(teamLower);
+        }) || marketText.includes('nfl');
+        return hasNflIndicator; // Only keep if it has NFL indicators
       });
       console.log("[markets] After sport filter (NFL only):", markets.length, "(removed", beforeSportFilter - markets.length, "non-NFL markets)");
       const beforeFilter = markets.length;
