@@ -1060,18 +1060,55 @@ module.exports = async (req, res) => {
                     });
                     
                     // If tag is just "Sports" (1), also check if it's actually an NFL event
+                    // Sports tag includes ALL sports (NFL, NBA, esports, etc.), so we need strict filtering
                     if (hasNflTag && nflTagIds.includes(1) && nflTagIds.length === 1) {
                       // Additional check: verify it's NFL and not other sports
                       const eventTitle = (event.title || "").toLowerCase();
                       const eventSlug = (event.slug || "").toLowerCase();
-                      const isNfl = eventTitle.includes('nfl') || 
-                                   eventSlug.includes('nfl') ||
-                                   eventTitle.includes('week') && (
-                                     eventTitle.includes('vs') || 
-                                     eventTitle.includes('vs.') ||
-                                     eventSlug.includes('vs') || 
-                                     eventSlug.includes('vs.')
-                                   );
+                      const eventText = `${eventTitle} ${eventSlug}`;
+                      
+                      // STRICT: Must explicitly mention NFL or have NFL team names
+                      const hasNflKeyword = eventText.includes('nfl') || 
+                                           eventText.includes('national football league');
+                      
+                      // Check for NFL team names (32 official teams)
+                      const nflTeamKeywords = [
+                        'bills', 'buffalo bills', 'dolphins', 'miami dolphins', 'patriots', 'new england patriots', 'jets', 'new york jets',
+                        'ravens', 'baltimore ravens', 'bengals', 'cincinnati bengals', 'browns', 'cleveland browns', 'steelers', 'pittsburgh steelers',
+                        'texans', 'houston texans', 'colts', 'indianapolis colts', 'jaguars', 'jacksonville jaguars', 'titans', 'tennessee titans',
+                        'broncos', 'denver broncos', 'chiefs', 'kansas city chiefs', 'raiders', 'las vegas raiders', 'chargers', 'los angeles chargers',
+                        'cowboys', 'dallas cowboys', 'giants', 'new york giants', 'eagles', 'philadelphia eagles', 'commanders', 'washington commanders',
+                        'bears', 'chicago bears', 'lions', 'detroit lions', 'packers', 'green bay packers', 'vikings', 'minnesota vikings',
+                        'falcons', 'atlanta falcons', 'panthers', 'carolina panthers', 'saints', 'new orleans saints', 'buccaneers', 'tampa bay buccaneers',
+                        'cardinals', 'arizona cardinals', 'rams', 'los angeles rams', '49ers', 'san francisco 49ers', 'seahawks', 'seattle seahawks',
+                        'buf', 'mia', 'ne', 'nyj', 'bal', 'cin', 'cle', 'pit', 'hou', 'ind', 'jax', 'ten', 'den', 'kc', 'lv', 'lac',
+                        'dal', 'nyg', 'phi', 'was', 'wsh', 'chi', 'det', 'gb', 'min', 'atl', 'car', 'no', 'tb', 'ari', 'lar', 'sf', 'sea'
+                      ];
+                      const hasNflTeam = nflTeamKeywords.some(team => eventText.includes(team));
+                      
+                      // EXCLUDE: Esports, other sports
+                      const isEsports = eventText.includes('counter-strike') || 
+                                       eventText.includes('cs:') ||
+                                       eventText.includes('cs2') ||
+                                       eventText.includes('esports') ||
+                                       eventText.includes('dota') ||
+                                       eventText.includes('league of legends') ||
+                                       eventText.includes('lol');
+                      const isOtherSport = eventText.includes('nba') || 
+                                          eventText.includes('mlb') || 
+                                          eventText.includes('nhl') ||
+                                          eventText.includes('soccer') ||
+                                          eventText.includes('basketball') ||
+                                          eventText.includes('baseball') ||
+                                          eventText.includes('hockey');
+                      
+                      // Only include if it has NFL keyword OR NFL team, AND not esports/other sports
+                      const isNfl = (hasNflKeyword || hasNflTeam) && !isEsports && !isOtherSport;
+                      
+                      if (!isNfl) {
+                        console.log("[markets] Excluding non-NFL event:", event.title, "hasNflKeyword:", hasNflKeyword, "hasNflTeam:", hasNflTeam, "isEsports:", isEsports);
+                      }
+                      
                       return isNfl;
                     }
                     
