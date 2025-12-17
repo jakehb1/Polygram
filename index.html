@@ -3236,24 +3236,39 @@
           }
           
           // Find primary moneyline market (the main game outcome)
+          // API should only return moneyline markets now, but find it explicitly
           const moneylineMarket = event.markets.find(m => {
             const q = (m.question || '').toLowerCase();
-            return q.includes('moneyline') || q.includes('ml') || 
-                   (q.includes(' vs ') && !q.includes('spread') && !q.includes('total') && !q.includes('o/u'));
+            return q.includes('moneyline') || q.includes(' ml ') || q.includes(' ml?') ||
+                   (q.includes(' vs ') && 
+                    !q.includes('spread') && 
+                    !q.includes('total') && 
+                    !q.includes('o/u') &&
+                    !q.includes('over/under') &&
+                    !q.includes('mvp') &&
+                    !q.includes('leader'));
           }) || event.markets[0];
           
-          // Get primary prices for moneyline (first two outcomes)
-          const primaryPrices = moneylineMarket?.outcomePrices || [];
-          const primaryOutcomes = moneylineMarket?.outcomes || [];
+          // Skip this event if no moneyline market found
+          if (!moneylineMarket || !moneylineMarket.outcomes || moneylineMarket.outcomes.length !== 2) {
+            console.log('[renderMarkets] Skipping event without valid moneyline market:', event.eventTitle);
+            return '';
+          }
+          
+          // Get primary prices for moneyline (exactly 2 outcomes - one per team)
+          const primaryPrices = moneylineMarket.outcomePrices || [];
+          const primaryOutcomes = moneylineMarket.outcomes || [];
           const price1 = primaryPrices[0] !== undefined ? (parseFloat(primaryPrices[0]) * 100).toFixed(0) + '¢' : '--';
           const price2 = primaryPrices[1] !== undefined ? (parseFloat(primaryPrices[1]) * 100).toFixed(0) + '¢' : '--';
+          
+          // Match outcomes to teams - outcome1 should be team1, outcome2 should be team2
           const outcome1 = primaryOutcomes[0] || team1 || 'Yes';
           const outcome2 = primaryOutcomes[1] || team2 || 'No';
           
-          // Get outcome colors - use team colors directly
-          // outcome1 should match team1, outcome2 should match team2
-          const outcome1Color = getTeamColor(team1) || getOutcomeColor(moneylineMarket, outcome1, 0) || team1Color;
-          const outcome2Color = getTeamColor(team2) || getOutcomeColor(moneylineMarket, outcome2, 1) || team2Color;
+          // Use team colors directly for each outcome
+          // outcome1 color = team1 color, outcome2 color = team2 color
+          const outcome1Color = team1Color; // Always use team1 color for first outcome
+          const outcome2Color = team2Color; // Always use team2 color for second outcome
           
           // Store event data in a data attribute for easier access
           const eventDataStr = encodeURIComponent(JSON.stringify(event));
