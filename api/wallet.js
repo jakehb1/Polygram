@@ -1,10 +1,13 @@
 // api/wallet.js
 // Wallet generation and management with Supabase
+// Phase 3: Migrating to Supabase Vault for key storage
 
 const { Wallet } = require("@ethersproject/wallet");
 const { Keypair } = require("@solana/web3.js");
 const { createClient } = require("@supabase/supabase-js");
 const crypto = require("crypto");
+// TODO: Import Vault functions when Vault API is fully integrated
+// const { createVaultSecret, getVaultSecret } = require("./lib/vault");
 
 // Simple encryption for MVP (use proper encryption in production)
 function encrypt(text, key) {
@@ -187,23 +190,64 @@ module.exports = async (req, res) => {
         });
       }
       
+      // Phase 3: Store keys in Vault (when fully integrated) or encrypted storage (fallback)
+      // TODO: Replace with Vault storage once Supabase Vault API is integrated
+      let polygonVaultSecretId = null;
+      let solanaVaultSecretId = null;
+      
+      // Try to use Vault if available (future implementation)
+      const USE_VAULT = process.env.USE_VAULT === 'true';
+      
+      if (USE_VAULT) {
+        try {
+          // TODO: Uncomment when Vault integration is complete
+          // const { createVaultSecret } = require("./lib/vault");
+          // polygonVaultSecretId = await createVaultSecret(
+          //   `polygon_${normalizedUserId}`,
+          //   polygonWallet.privateKey,
+          //   `Polygon private key for user ${normalizedUserId}`
+          // );
+          // solanaVaultSecretId = await createVaultSecret(
+          //   `solana_${normalizedUserId}`,
+          //   solanaSecretKey,
+          //   `Solana private key for user ${normalizedUserId}`
+          // );
+          console.log("[wallet] Vault storage not yet implemented, using encrypted storage");
+        } catch (vaultError) {
+          console.warn("[wallet] Vault storage failed, falling back to encrypted storage:", vaultError);
+        }
+      }
+
+      // Fallback: Use encrypted storage (current implementation)
+      // NOTE: This is temporary - keys should be moved to Vault
       const polygonSecretEnc = encrypt(polygonWallet.privateKey, encryptionKey);
       const solanaSecretEnc = encrypt(solanaSecretKey, encryptionKey);
 
       // Save to Supabase with Telegram user ID
       // Note: TON address is set separately when user connects via TON Connect (not custodial)
+      const insertData = {
+        user_id: normalizedUserId, // Store Telegram user ID
+        polygon_address: polygonWallet.address.toLowerCase(),
+        solana_address: solanaAddress,
+        ton_address: null, // Will be set when user connects via TON Connect
+        clob_registered: false,
+        usdc_approved: false,
+      };
+
+      // Phase 3: Use Vault secret IDs if available, otherwise use encrypted storage
+      if (polygonVaultSecretId && solanaVaultSecretId) {
+        insertData.polygon_vault_secret_id = polygonVaultSecretId;
+        insertData.solana_vault_secret_id = solanaVaultSecretId;
+        // Don't store encrypted keys if using Vault
+      } else {
+        // Use encrypted storage (current method)
+        insertData.polygon_secret_enc = polygonSecretEnc;
+        insertData.solana_secret_enc = solanaSecretEnc;
+      }
+
       const { data: newWallet, error: insertError } = await supabase
         .from("custody_wallets")
-        .insert({
-          user_id: normalizedUserId, // Store Telegram user ID
-          polygon_address: polygonWallet.address.toLowerCase(),
-          polygon_secret_enc: polygonSecretEnc,
-          solana_address: solanaAddress,
-          solana_secret_enc: solanaSecretEnc,
-          ton_address: null, // Will be set when user connects via TON Connect
-          clob_registered: false,
-          usdc_approved: false,
-        })
+        .insert(insertData)
         .select("polygon_address, solana_address, ton_address, created_at, user_id")
         .single();
 

@@ -5,6 +5,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { Address } = require("@ton/core");
 const { signVerify } = require("@ton/crypto");
+const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
 module.exports = async (req, res) => {
@@ -43,11 +44,20 @@ module.exports = async (req, res) => {
       public_key
     } = req.body;
 
-    // Validate required fields
-    if (!ton_address || !telegram_user_id || !timestamp || !payload || !signature || !public_key) {
+    // Validate required fields (signature is optional for MVP if skip_signature_verification is true)
+    const skipSignatureVerification = req.body.skip_signature_verification === true;
+    
+    if (!ton_address || !telegram_user_id || !timestamp || !payload) {
       return res.status(400).json({
         error: "missing_required_fields",
-        message: "Missing required fields: ton_address, telegram_user_id, timestamp, payload, signature, public_key"
+        message: "Missing required fields: ton_address, telegram_user_id, timestamp, payload"
+      });
+    }
+
+    if (!skipSignatureVerification && (!signature || !public_key)) {
+      return res.status(400).json({
+        error: "missing_required_fields",
+        message: "signature and public_key are required (or set skip_signature_verification=true for MVP)"
       });
     }
 
@@ -76,35 +86,53 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Construct the message for verification (ton-proof-item-v2 format)
-    // Format: "ton-proof-item-v2/" + Address + AppDomain + Timestamp + Payload
-    const address = Address.parse(ton_address);
-    const addressBytes = address.toRawString(); // Returns address in workchain:hex format
-    
-    const messageParts = [
-      Buffer.from("ton-proof-item-v2/", "utf-8"),
-      Buffer.from(addressBytes, "utf-8"),
-      Buffer.from(appDomain, "utf-8"),
-      Buffer.from(timestamp.toString(), "utf-8"),
-      Buffer.from(JSON.stringify(payload), "utf-8")
-    ];
-    
-    const message = Buffer.concat(messageParts);
-    
-    // Hash the message using SHA-256
-    const messageHash = crypto.createHash("sha256").update(message).digest();
-    
-    // Verify signature
-    const publicKeyBuffer = Buffer.from(public_key, "base64");
-    const signatureBuffer = Buffer.from(signature, "base64");
-    
-    const isValid = await signVerify(messageHash, signatureBuffer, publicKeyBuffer);
-    
-    if (!isValid) {
-      return res.status(401).json({
-        error: "invalid_signature",
-        message: "Signature verification failed"
+    // Verify signature (skip for MVP if flag is set)
+    if (!skipSignatureVerification && signature && public_key) {
+      try {
+        // Construct the message for verification (ton-proof-item-v2 format)
+        // Format: "ton-proof-item-v2/" + Address + AppDomain + Timestamp + Payload
+        const address = Address.parse(ton_address);
+        const addressBytes = address.toRawString(); // Returns address in workchain:hex format
+        
+        const messageParts = [
+          Buffer.from("ton-proof-item-v2/", "utf-8"),
+          Buffer.from(addressBytes, "utf-8"),
+          Buffer.from(appDomain, "utf-8"),
+          Buffer.from(timestamp.toString(), "utf-8"),
+          Buffer.from(JSON.stringify(payload), "utf-8")
+        ];
+        
+        const message = Buffer.concat(messageParts);
+        
+        // Hash the message using SHA-256
+        const messageHash = crypto.createHash("sha256").update(message).digest();
+        
+        // Verify signature
+        const publicKeyBuffer = Buffer.from(public_key, "base64");
+        const signatureBuffer = Buffer.from(signature, "base64");
+        
+        const isValid = await signVerify(messageHash, signatureBuffer, publicKeyBuffer);
+        
+        if (!isValid) {
+          return res.status(401).json({
+            error: "invalid_signature",
+            message: "Signature verification failed"
+          });
+        }
+      } catch (verifyError) {
+        console.error("[ton-proof] Signature verification error:", verifyError);
+        return res.status(401).json({
+          error: "signature_verification_error",
+          message: "Failed to verify signature: " + verifyError.message
+        });
+      }
+    } else if (!skipSignatureVerification) {
+      return res.status(400).json({
+        error: "signature_required",
+        message: "Signature verification required but signature or public_key missing"
       });
+    } else {
+      console.log("[ton-proof] Signature verification skipped (MVP mode)");
     }
 
     // Verify that the payload contains the expected telegram_user_id
@@ -129,9 +157,23 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Generate JWT session token (simplified - use proper JWT library in production)
-    const sessionToken = generateSessionToken(telegram_user_id, ton_address);
+    // Generate JWT session token using proper JWT library
+    const jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    const sessionToken = jwt.sign(
+      {
+        user_id: telegram_user_id,
+        ton_address: ton_address,
+        type: 'ton_proof_auth'
+      },
+      jwtSecret,
+      {
+        expiresIn: '7d',
+        issuer: 'polygram',
+        audience: 'polygram_app'
+      }
+    );
 
     // Store session in database
     const { error: sessionError } = await supabase
@@ -169,22 +211,3 @@ module.exports = async (req, res) => {
   }
 };
 
-// Generate a simple session token (use proper JWT library like jsonwebtoken in production)
-function generateSessionToken(userId, tonAddress) {
-  const payload = {
-    user_id: userId,
-    ton_address: tonAddress,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
-  };
-  
-  // In production, use a proper JWT library:
-  // const jwt = require('jsonwebtoken');
-  // return jwt.sign(payload, process.env.JWT_SECRET);
-  
-  // For now, generate a secure random token
-  const tokenData = JSON.stringify(payload);
-  return crypto.createHash("sha256")
-    .update(tokenData + process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex"))
-    .digest("hex");
-}
