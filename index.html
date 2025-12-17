@@ -1711,9 +1711,9 @@
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
             </button>
-            <div id="tonConnectButtonContainer" style="margin-left: 8px;"></div>
-            <button class="wallet-action-btn" id="connectTonBtnFallback" title="Connect TON Wallet" style="margin-left: 8px; display: none;">
-              Connect
+            <div id="tonConnectButtonContainer" style="margin-left: 8px; min-width: 120px;"></div>
+            <button class="wallet-action-btn" id="connectTonBtnFallback" title="Connect TON Wallet" style="margin-left: 8px;">
+              Connect TON
             </button>
           </div>
         </div>
@@ -2044,6 +2044,26 @@
             }
           });
 
+          // Hide fallback button when TON Connect button is rendered
+          const connectContainer = document.getElementById('tonConnectButtonContainer');
+          const fallbackBtn = document.getElementById('connectTonBtnFallback');
+          if (connectContainer && fallbackBtn) {
+            // Check if TON Connect button was rendered (it should appear within a few ms)
+            setTimeout(() => {
+              if (connectContainer.children.length > 0) {
+                fallbackBtn.style.display = 'none';
+              } else {
+                // TON Connect button didn't render, show fallback
+                fallbackBtn.style.display = 'inline-flex';
+                fallbackBtn.onclick = () => {
+                  if (tonConnectUI) {
+                    tonConnectUI.openModal();
+                  }
+                };
+              }
+            }, 500);
+          }
+
           // Listen for wallet connection status changes
           tonConnectUI.onStatusChange((walletInfo) => {
             console.log('[TON Connect] Wallet status changed:', walletInfo);
@@ -2061,6 +2081,8 @@
               if (tonEl) tonEl.textContent = tonAddress;
               if (tonCopyBtn) tonCopyBtn.style.display = 'inline-flex';
               if (connectContainer) connectContainer.style.display = 'none';
+              const fallbackBtn = document.getElementById('connectTonBtnFallback');
+              if (fallbackBtn) fallbackBtn.style.display = 'none';
               
               // Save TON address to backend
               saveTONAddress(tonAddress);
@@ -2087,6 +2109,8 @@
               if (tonEl) tonEl.textContent = 'Not connected';
               if (tonCopyBtn) tonCopyBtn.style.display = 'none';
               if (connectContainer) connectContainer.style.display = 'block';
+              const fallbackBtn = document.getElementById('connectTonBtnFallback');
+              if (fallbackBtn) fallbackBtn.style.display = 'inline-flex';
               
               // Update state
               if (state.wallet) {
@@ -2109,6 +2133,8 @@
             if (tonEl) tonEl.textContent = tonAddress;
             if (tonCopyBtn) tonCopyBtn.style.display = 'inline-flex';
             if (connectContainer) connectContainer.style.display = 'none';
+            const fallbackBtn = document.getElementById('connectTonBtnFallback');
+            if (fallbackBtn) fallbackBtn.style.display = 'none';
             
             // Save to backend
             saveTONAddress(tonAddress);
@@ -2388,6 +2414,8 @@
             tonEl.textContent = 'Not connected';
             if (tonCopyBtn) tonCopyBtn.style.display = 'none';
             if (connectContainer) connectContainer.style.display = 'block';
+            const fallbackBtn = document.getElementById('connectTonBtnFallback');
+            if (fallbackBtn) fallbackBtn.style.display = 'inline-flex';
           }
         }
         
