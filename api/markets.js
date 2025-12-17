@@ -1107,12 +1107,23 @@ module.exports = async (req, res) => {
             }
           }
           
+          console.log("[markets] Total events after merging:", allEvents.length);
+          
           if (Array.isArray(allEvents) && allEvents.length > 0) {
               // Determine target week: use provided week parameter, or default to current week
               const targetWeek = week ? parseInt(week, 10) : getCurrentNFLWeek();
               
               console.log("[markets] Found", allEvents.length, "events from NFL tag queries");
               console.log("[markets] Filtering for week:", targetWeek, week ? "(specified)" : "(current)");
+              
+              // Log sample events for debugging
+              console.log("[markets] Sample events:", allEvents.slice(0, 3).map(e => ({
+                id: e.id,
+                title: e.title?.substring(0, 50),
+                slug: e.slug?.substring(0, 50),
+                tags: e.tags?.map(t => typeof t === 'object' ? t.id : t),
+                marketsCount: e.markets?.length || 0
+              })));
               
               let matchedEvents = 0;
               
