@@ -2060,6 +2060,15 @@
         
         console.log('[TON Connect] Initializing with manifest:', manifestUrl);
           
+        // Check if the button container exists before initializing
+        const connectContainer = document.getElementById('tonConnectButtonContainer');
+        if (!connectContainer) {
+          console.warn('[TON Connect] Container element not found, delaying initialization');
+          // Retry after DOM is ready
+          setTimeout(() => initTONConnect(), 100);
+          return;
+        }
+        
         // For Telegram Mini Apps, TON Connect should use Telegram Wallet natively
         // Configure to use TON Foundation's bridge service (not localhost)
         const tonConnectConfig = {
@@ -2087,8 +2096,7 @@
           throw new Error('TON Connect UI initialization failed');
         }
 
-          // Set up fallback button click handler immediately
-          const connectContainer = document.getElementById('tonConnectButtonContainer');
+          // Set up fallback button click handler immediately (container already checked above)
           const fallbackBtn = document.getElementById('connectTonBtnFallback');
           
           // Always set up click handler for fallback button
