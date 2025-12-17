@@ -1284,9 +1284,16 @@ module.exports = async (req, res) => {
               }
               console.log("[markets] Matched", matchedEvents, "NFL events, found", markets.length, "markets");
               console.log("[markets] Added NFL game markets from events search");
+          } else {
+              console.log("[markets] WARNING: No events found from API queries");
+              console.log("[markets] Possible reasons:");
+              console.log("[markets] 1. API returned empty arrays");
+              console.log("[markets] 2. No events match the NFL tag filter (tag IDs:", nflTagIds, ")");
+              console.log("[markets] 3. The tag IDs we're using might be incorrect");
           }
         } catch (e) {
           console.log("[markets] Error searching events for NFL games:", e.message);
+          console.error("[markets] Error stack:", e.stack);
         }
         
         // NOTE: We ONLY use the /events endpoint for NFL games to ensure we get the correct data
