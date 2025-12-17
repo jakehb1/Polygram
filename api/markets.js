@@ -1309,13 +1309,40 @@ module.exports = async (req, res) => {
                 console.log("[markets] Including NFL event:", event.title, "Week:", eventWeek || "unknown", "Date:", eventDateStr, "startDate:", event.startDate);
                 
                 // Include all markets from this event (they're already NFL games from NFL-tagged events)
+                // But verify markets also mention NFL teams to be extra sure
                 for (const market of event.markets) {
                   if (market.closed || market.active === false) continue;
                   
                   // Exclude obvious props at market level
                   const question = (market.question || "").toLowerCase();
-                  if (question.includes("mvp") || question.includes("leader") || 
-                      question.includes("rookie of the year")) {
+                  const slug = (market.slug || "").toLowerCase();
+                  const marketText = `${question} ${slug}`;
+                  
+                  // Verify this market mentions at least one NFL team
+                  const marketHasNflTeam = nflTeamKeywords.some(team => {
+                    if (team.length <= 3) {
+                      const regex = new RegExp(`\\b${team}\\b`, 'i');
+                      return regex.test(marketText);
+                    }
+                    return marketText.includes(team);
+                  });
+                  
+                  // Also check for NFL keyword in market
+                  const marketHasNflKeyword = marketText.includes('nfl') || marketText.includes('national football league');
+                  
+                  // Skip if it's a prop AND doesn't mention NFL teams
+                  const isProp = question.includes("mvp") || question.includes("leader") || 
+                                question.includes("rookie of the year") ||
+                                question.includes("offensive player") ||
+                                question.includes("defensive player");
+                  
+                  if (isProp && !marketHasNflTeam && !marketHasNflKeyword) {
+                    continue;
+                  }
+                  
+                  // For game markets, require NFL team or NFL keyword
+                  if (!isProp && !marketHasNflTeam && !marketHasNflKeyword) {
+                    console.log("[markets] Skipping market without NFL team/keyword:", question);
                     continue;
                   }
                   
