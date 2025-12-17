@@ -1022,11 +1022,16 @@ module.exports = async (req, res) => {
           let nflTagIds = categoryTagIds.length > 0 ? categoryTagIds : [];
           
           // Fallback: use known NFL tag IDs if /sports didn't work
+          // NFL is typically under Sports (tag 1), but we need to check events with tag 1 and filter for NFL
+          // Also try known NFL-specific tag IDs
           if (nflTagIds.length === 0) {
-            // Try common NFL-related tag IDs (Sports tag=1, and NFL-specific tags)
-            nflTagIds = [1, 450]; // Sports tag and potential NFL tag
-            console.log("[markets] Using fallback NFL tag IDs:", nflTagIds);
+            // Sports tag is 1, but that includes all sports
+            // We'll fetch events and filter by checking if they're NFL in the event title/slug
+            nflTagIds = [1]; // Start with Sports tag, filter for NFL events below
+            console.log("[markets] Using fallback: fetching all Sports events (tag 1) and filtering for NFL");
           }
+          
+          console.log("[markets] Using NFL tag IDs for filtering:", nflTagIds);
           
           // Query events - the API may not support tag_id as query param, so fetch all and filter
           // Try multiple approaches to get NFL events
@@ -1045,15 +1050,35 @@ module.exports = async (req, res) => {
                 const events = await eventResp.json();
                 const eventsArray = Array.isArray(events) ? events : [];
                 
-                // Filter events that have NFL tags
+                // Filter events that have NFL tags OR are NFL events
                 if (nflTagIds.length > 0) {
-                  return eventsArray.filter(event => {
+                  const filtered = eventsArray.filter(event => {
                     const eventTags = event.tags || [];
-                    return eventTags.some(tag => {
+                    const hasNflTag = eventTags.some(tag => {
                       const tagId = typeof tag === 'object' ? tag.id : tag;
                       return nflTagIds.includes(Number(tagId));
                     });
+                    
+                    // If tag is just "Sports" (1), also check if it's actually an NFL event
+                    if (hasNflTag && nflTagIds.includes(1) && nflTagIds.length === 1) {
+                      // Additional check: verify it's NFL and not other sports
+                      const eventTitle = (event.title || "").toLowerCase();
+                      const eventSlug = (event.slug || "").toLowerCase();
+                      const isNfl = eventTitle.includes('nfl') || 
+                                   eventSlug.includes('nfl') ||
+                                   eventTitle.includes('week') && (
+                                     eventTitle.includes('vs') || 
+                                     eventTitle.includes('vs.') ||
+                                     eventSlug.includes('vs') || 
+                                     eventSlug.includes('vs.')
+                                   );
+                      return isNfl;
+                    }
+                    
+                    return hasNflTag;
                   });
+                  console.log("[markets] Filtered", filtered.length, "NFL events from", eventsArray.length, "total events");
+                  return filtered;
                 }
                 
                 return eventsArray;
