@@ -1020,17 +1020,40 @@ module.exports = async (req, res) => {
         console.log("[markets] Fetching NFL games for week:", targetWeek);
         
         try {
-          // Get NFL tag ID(s) - use the tag IDs we found from /sports endpoint
+          // Get NFL tag ID(s) - MUST use NFL-specific tag, not Sports tag 1
           let nflTagIds = categoryTagIds.length > 0 ? categoryTagIds : [];
           
-          // Fallback: use known NFL tag IDs if /sports didn't work
-          // NFL is typically under Sports (tag 1), but we need to check events with tag 1 and filter for NFL
-          // Also try known NFL-specific tag IDs
+          // If we don't have NFL tag IDs yet, fetch from /sports endpoint
           if (nflTagIds.length === 0) {
-            // Sports tag is 1, but that includes all sports
-            // We'll fetch events and filter by checking if they're NFL in the event title/slug
-            nflTagIds = [1]; // Start with Sports tag, filter for NFL events below
-            console.log("[markets] Using fallback: fetching all Sports events (tag 1) and filtering for NFL");
+            try {
+              const sportsResp = await fetch(`${GAMMA_API}/sports`);
+              if (sportsResp.ok) {
+                const sportsData = await sportsResp.json();
+                // Find NFL in sports data
+                if (Array.isArray(sportsData)) {
+                  const nflSport = sportsData.find(s => 
+                    (s.slug || '').toLowerCase() === 'nfl' ||
+                    (s.label || '').toLowerCase() === 'nfl' ||
+                    (s.name || '').toLowerCase() === 'nfl'
+                  );
+                  if (nflSport && nflSport.tagId) {
+                    nflTagIds = [nflSport.tagId];
+                    console.log("[markets] Found NFL tag ID from /sports:", nflSport.tagId);
+                  }
+                }
+              }
+            } catch (e) {
+              console.log("[markets] Error fetching /sports:", e.message);
+            }
+          }
+          
+          // CRITICAL: If still no NFL tag ID, we cannot proceed - do not use Sports tag 1
+          if (nflTagIds.length === 0) {
+            console.log("[markets] ERROR: No NFL tag ID found. Cannot fetch NFL games without NFL subcategory tag.");
+            return res.status(200).json({
+              markets: [],
+              meta: { total: 0, message: "NFL subcategory tag not found. Please ensure NFL tag exists in Polymarket API." }
+            });
           }
           
           console.log("[markets] Using NFL tag IDs for filtering:", nflTagIds);
@@ -1331,41 +1354,48 @@ module.exports = async (req, res) => {
                 const eventDateStr = event.startDate ? new Date(event.startDate).toISOString() : 'no date';
                 console.log("[markets] Including NFL event:", event.title, "Week:", eventWeek || "unknown", "Date:", eventDateStr, "startDate:", event.startDate);
                 
-                // Include all markets from this event (they're already NFL games from NFL-tagged events)
-                // But verify markets also mention NFL teams to be extra sure
+                // ONLY include moneyline markets (one per team) - filter out spreads, totals, props
+                // Each game should have exactly ONE moneyline market with 2 outcomes (one per team)
                 for (const market of event.markets) {
                   if (market.closed || market.active === false) continue;
                   
-                  // Exclude obvious props at market level
                   const question = (market.question || "").toLowerCase();
                   const slug = (market.slug || "").toLowerCase();
                   const marketText = `${question} ${slug}`;
                   
-                  // Verify this market mentions at least one NFL team
-                  const marketHasNflTeam = nflTeamKeywords.some(team => {
-                    if (team.length <= 3) {
-                      const regex = new RegExp(`\\b${team}\\b`, 'i');
-                      return regex.test(marketText);
-                    }
-                    return marketText.includes(team);
-                  });
+                  // ONLY include moneyline markets - exclude spreads, totals, props
+                  const isMoneyline = question.includes('moneyline') || 
+                                     question.includes(' ml ') ||
+                                     question.includes(' ml?') ||
+                                     (question.includes(' vs ') && 
+                                      !question.includes('spread') && 
+                                      !question.includes('total') && 
+                                      !question.includes('o/u') &&
+                                      !question.includes('over/under') &&
+                                      !question.includes('mvp') &&
+                                      !question.includes('leader') &&
+                                      !question.includes('winner') &&
+                                      !question.includes('champion'));
                   
-                  // Also check for NFL keyword in market
-                  const marketHasNflKeyword = marketText.includes('nfl') || marketText.includes('national football league');
+                  // Exclude all non-moneyline markets
+                  const isSpread = question.includes('spread') || question.includes('point spread');
+                  const isTotal = question.includes('total') || question.includes('o/u') || question.includes('over/under');
+                  const isProp = question.includes('mvp') || 
+                                question.includes('leader') || 
+                                question.includes('rookie of the year') ||
+                                question.includes('offensive player') ||
+                                question.includes('defensive player') ||
+                                question.includes('winner') && !question.includes(' vs ') ||
+                                question.includes('champion') && !question.includes(' vs ');
                   
-                  // Skip if it's a prop AND doesn't mention NFL teams
-                  const isProp = question.includes("mvp") || question.includes("leader") || 
-                                question.includes("rookie of the year") ||
-                                question.includes("offensive player") ||
-                                question.includes("defensive player");
-                  
-                  if (isProp && !marketHasNflTeam && !marketHasNflKeyword) {
-                    continue;
+                  if (!isMoneyline || isSpread || isTotal || isProp) {
+                    continue; // Skip non-moneyline markets
                   }
                   
-                  // For game markets, require NFL team or NFL keyword
-                  if (!isProp && !marketHasNflTeam && !marketHasNflKeyword) {
-                    console.log("[markets] Skipping market without NFL team/keyword:", question);
+                  // Moneyline markets should have exactly 2 outcomes (one per team)
+                  const outcomes = market.outcomes || [];
+                  if (outcomes.length !== 2) {
+                    console.log("[markets] Skipping moneyline market with", outcomes.length, "outcomes (expected 2):", question);
                     continue;
                   }
                   

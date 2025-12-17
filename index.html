@@ -3250,9 +3250,10 @@
           const outcome1 = primaryOutcomes[0] || team1 || 'Yes';
           const outcome2 = primaryOutcomes[1] || team2 || 'No';
           
-          // Get outcome colors
-          const outcome1Color = getOutcomeColor(moneylineMarket, outcome1, 0) || team1Color;
-          const outcome2Color = getOutcomeColor(moneylineMarket, outcome2, 1) || team2Color;
+          // Get outcome colors - use team colors directly
+          // outcome1 should match team1, outcome2 should match team2
+          const outcome1Color = getTeamColor(team1) || getOutcomeColor(moneylineMarket, outcome1, 0) || team1Color;
+          const outcome2Color = getTeamColor(team2) || getOutcomeColor(moneylineMarket, outcome2, 1) || team2Color;
           
           // Store event data in a data attribute for easier access
           const eventDataStr = encodeURIComponent(JSON.stringify(event));
