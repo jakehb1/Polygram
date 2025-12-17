@@ -2095,28 +2095,26 @@
                 fallbackBtn.disabled = true;
                 fallbackBtn.textContent = 'Opening...';
                 
-                // For Telegram, try to open modal - it should use Telegram Wallet
-                // The modal opening is non-blocking, so we don't wait for it
-                try {
-                  tonConnectUI.openModal();
-                  console.log('[TON Connect] Modal open called');
-                  
-                  // Reset button after a short delay (modal handles its own state)
-                  setTimeout(() => {
-                    fallbackBtn.disabled = false;
-                    fallbackBtn.textContent = originalText;
-                  }, 2000);
-                  
-                  // Show user message
-                  if (isTelegram) {
-                    console.log('[TON Connect] If wallet modal does not appear, make sure Telegram Wallet is enabled in your Telegram settings');
-                  }
-                } catch (modalError) {
-                  console.error('[TON Connect] Error calling openModal:', modalError);
+                // Open modal - for Telegram it should use Telegram Wallet
+                // Note: openModal() returns a promise that resolves when user connects
+                // We don't await it to avoid blocking, but we handle errors
+                const modalPromise = tonConnectUI.openModal().catch(err => {
+                  console.error('[TON Connect] Modal error:', err);
                   fallbackBtn.disabled = false;
                   fallbackBtn.textContent = originalText;
-                  throw modalError;
-                }
+                  alert('Failed to open wallet connection. Please try again or check if Telegram Wallet is enabled.');
+                });
+                
+                console.log('[TON Connect] Modal open called (non-blocking)');
+                
+                // Reset button after a delay (user can click again if needed)
+                setTimeout(() => {
+                  fallbackBtn.disabled = false;
+                  fallbackBtn.textContent = originalText;
+                }, 3000);
+                
+                // Don't await - let modal handle its own lifecycle
+                // The onStatusChange handler will update UI when wallet connects
                 
               } catch (error) {
                 console.error('[TON Connect] Error opening modal:', error);
