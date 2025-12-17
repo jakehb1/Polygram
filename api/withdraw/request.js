@@ -5,6 +5,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { validateSession } = require("../middleware/validate-session");
 const { checkIdempotency, storeIdempotencyKey, checkRateLimit, hashRequest } = require("../lib/security");
+const { handleApiError, validateAmount, validateTONAddress, ERROR_CODES } = require("../lib/errors");
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -59,17 +60,23 @@ module.exports = async (req, res) => {
         address_public_key
       } = req.body;
 
-      if (!amount_usdc || amount_usdc <= 0) {
+      // Validate amount
+      try {
+        validateAmount(amount_usdc, 1); // Minimum $1
+      } catch (validationError) {
         return res.status(400).json({
-          error: "invalid_amount",
-          message: "amount_usdc must be greater than 0"
+          error: ERROR_CODES.INVALID_AMOUNT,
+          message: validationError.message
         });
       }
 
-      if (!ton_destination_address) {
+      // Validate TON address
+      try {
+        validateTONAddress(ton_destination_address);
+      } catch (validationError) {
         return res.status(400).json({
-          error: "missing_destination",
-          message: "ton_destination_address is required"
+          error: ERROR_CODES.INVALID_ADDRESS,
+          message: validationError.message
         });
       }
 
@@ -315,10 +322,9 @@ module.exports = async (req, res) => {
     }
 
   } catch (err) {
-    console.error("[withdraw/request] Error:", err);
-    return res.status(500).json({
-      error: "withdrawal_operation_failed",
-      message: err.message
+    return handleApiError(err, req, res, {
+      operation: 'withdrawal',
+      amount_usdc: req.body?.amount_usdc
     });
   }
 };

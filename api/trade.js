@@ -4,6 +4,7 @@
 
 const { validateSession } = require("./middleware/validate-session");
 const { checkIdempotency, storeIdempotencyKey, checkRateLimit, hashRequest } = require("./lib/security");
+const { handleApiError, validateAmount, ERROR_CODES } = require("./lib/errors");
 const { createClient } = require("@supabase/supabase-js");
 
 module.exports = async (req, res) => {
@@ -68,8 +69,14 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: "invalid_side", message: "side must be 'yes' or 'no'" });
     }
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: "invalid_amount", message: "amount must be greater than 0" });
+    // Validate amount
+    try {
+      validateAmount(amount, 1); // Minimum $1
+    } catch (validationError) {
+      return res.status(400).json({
+        error: ERROR_CODES.INVALID_AMOUNT,
+        message: validationError.message
+      });
     }
 
     // Security: Rate limiting (20 trades per minute per user)
@@ -235,10 +242,11 @@ module.exports = async (req, res) => {
     return res.status(200).json(response);
 
   } catch (err) {
-    console.error("[trade] Error:", err);
-    return res.status(500).json({
-      error: "trade_failed",
-      message: err.message
+    return handleApiError(err, req, res, {
+      operation: 'trade',
+      marketId: marketId,
+      side: side,
+      amount: amount
     });
   }
 };
