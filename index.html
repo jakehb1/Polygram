@@ -2376,18 +2376,18 @@
         // Display TON wallet
         const tonEl = document.getElementById('tonWalletAddress');
         const tonCopyBtn = document.getElementById('copyTonBtn');
-        const connectTonBtn = document.getElementById('connectTonBtn');
+        const connectContainer = document.getElementById('tonConnectButtonContainer');
         if (tonEl) {
           if (wallet.ton) {
             tonEl.textContent = wallet.ton;
             if (tonCopyBtn) tonCopyBtn.style.display = 'inline-flex';
-            if (connectTonBtn) connectTonBtn.style.display = 'none';
+            if (connectContainer) connectContainer.style.display = 'none';
             setupCopyButton('copyTonBtn', wallet.ton);
             setupClickableAddress('tonWalletAddress', wallet.ton);
           } else {
             tonEl.textContent = 'Not connected';
             if (tonCopyBtn) tonCopyBtn.style.display = 'none';
-            if (connectTonBtn) connectTonBtn.style.display = 'inline-flex';
+            if (connectContainer) connectContainer.style.display = 'block';
           }
         }
         
