@@ -2027,12 +2027,24 @@
 
     function initTONConnect() {
       try {
-        if (typeof TonConnectUI !== 'undefined') {
-          // Get the app URL (use current origin)
-          const appUrl = window.location.origin;
-          const manifestUrl = `${appUrl}/tonconnect-manifest.json`;
-          
-          console.log('[TON Connect] Initializing with manifest:', manifestUrl);
+        // Check if TON Connect UI is loaded
+        if (typeof TonConnectUI === 'undefined') {
+          console.error('[TON Connect] TonConnectUI is not loaded. Check if script is included.');
+          // Set up fallback button anyway
+          const fallbackBtn = document.getElementById('connectTonBtnFallback');
+          if (fallbackBtn) {
+            fallbackBtn.onclick = () => {
+              alert('TON Connect library is not loaded. Please refresh the page or check your internet connection.');
+            };
+          }
+          return;
+        }
+        
+        // Get the app URL (use current origin)
+        const appUrl = window.location.origin;
+        const manifestUrl = `${appUrl}/tonconnect-manifest.json`;
+        
+        console.log('[TON Connect] Initializing with manifest:', manifestUrl);
           
           tonConnectUI = new TonConnectUI({
             manifestUrl: manifestUrl,
@@ -2044,24 +2056,44 @@
             }
           });
 
-          // Hide fallback button when TON Connect button is rendered
+          // Set up fallback button click handler immediately
           const connectContainer = document.getElementById('tonConnectButtonContainer');
           const fallbackBtn = document.getElementById('connectTonBtnFallback');
+          
+          // Always set up click handler for fallback button
+          if (fallbackBtn) {
+            fallbackBtn.onclick = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[TON Connect] Fallback button clicked');
+              if (tonConnectUI) {
+                try {
+                  console.log('[TON Connect] Opening modal...');
+                  tonConnectUI.openModal();
+                } catch (error) {
+                  console.error('[TON Connect] Error opening modal:', error);
+                  alert('Error connecting TON wallet. Please try again.');
+                }
+              } else {
+                console.error('[TON Connect] tonConnectUI not initialized');
+                alert('TON Connect is not initialized. Please refresh the page.');
+              }
+            };
+          }
+          
+          // Hide fallback button when TON Connect button is rendered
           if (connectContainer && fallbackBtn) {
             // Check if TON Connect button was rendered (it should appear within a few ms)
             setTimeout(() => {
               if (connectContainer.children.length > 0) {
+                console.log('[TON Connect] TON Connect button rendered, hiding fallback');
                 fallbackBtn.style.display = 'none';
               } else {
                 // TON Connect button didn't render, show fallback
+                console.log('[TON Connect] TON Connect button not rendered, showing fallback');
                 fallbackBtn.style.display = 'inline-flex';
-                fallbackBtn.onclick = () => {
-                  if (tonConnectUI) {
-                    tonConnectUI.openModal();
-                  }
-                };
               }
-            }, 500);
+            }, 1000);
           }
 
           // Listen for wallet connection status changes
@@ -2110,7 +2142,19 @@
               if (tonCopyBtn) tonCopyBtn.style.display = 'none';
               if (connectContainer) connectContainer.style.display = 'block';
               const fallbackBtn = document.getElementById('connectTonBtnFallback');
-              if (fallbackBtn) fallbackBtn.style.display = 'inline-flex';
+              if (fallbackBtn) {
+                fallbackBtn.style.display = 'inline-flex';
+                // Ensure click handler is set
+                if (!fallbackBtn.onclick) {
+                  fallbackBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (tonConnectUI) {
+                      tonConnectUI.openModal();
+                    }
+                  };
+                }
+              }
               
               // Update state
               if (state.wallet) {
