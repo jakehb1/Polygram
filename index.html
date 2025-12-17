@@ -6,7 +6,7 @@
   <title>Polygram · Trade Predictions</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-  <script src="https://unpkg.com/@tonconnect/ui@2.3.1/dist/tonconnect-ui.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2.3.1/dist/tonconnect-ui.min.js" onerror="console.error('Failed to load TON Connect UI from unpkg, trying jsdelivr...'); this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.3.1/dist/tonconnect-ui.min.js';"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -2028,16 +2028,25 @@
 
     function initTONConnect() {
       try {
-        // Check if TON Connect UI is loaded
+        // Check if TON Connect UI is loaded - retry if not available yet
         if (typeof TonConnectUI === 'undefined') {
-          console.error('[TON Connect] TonConnectUI is not loaded. Check if script is included.');
-          // Set up fallback button anyway
-          const fallbackBtn = document.getElementById('connectTonBtnFallback');
-          if (fallbackBtn) {
-            fallbackBtn.onclick = () => {
-              alert('TON Connect library is not loaded. Please refresh the page or check your internet connection.');
-            };
-          }
+          console.warn('[TON Connect] TonConnectUI not loaded yet, will retry in 500ms');
+          // Retry initialization after a short delay (script might still be loading)
+          setTimeout(() => {
+            if (typeof TonConnectUI !== 'undefined') {
+              console.log('[TON Connect] TonConnectUI loaded, retrying initialization');
+              initTONConnect();
+            } else {
+              console.error('[TON Connect] TonConnectUI failed to load after retry');
+              // Set up fallback button with informative message
+              const fallbackBtn = document.getElementById('connectTonBtnFallback');
+              if (fallbackBtn) {
+                fallbackBtn.onclick = () => {
+                  alert('TON Connect is not available. This feature requires the TON Connect library to be loaded. Please refresh the page or check your internet connection.');
+                };
+              }
+            }
+          }, 500);
           return;
         }
         
