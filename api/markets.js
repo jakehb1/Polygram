@@ -1197,8 +1197,13 @@ module.exports = async (req, res) => {
                 title: e.title?.substring(0, 50),
                 slug: e.slug?.substring(0, 50),
                 tags: e.tags?.map(t => typeof t === 'object' ? t.id : t),
-                marketsCount: e.markets?.length || 0
+                marketsCount: e.markets?.length || 0,
+                startDate: e.startDate
               })));
+              
+              if (allEvents.length === 0) {
+                console.log("[markets] WARNING: No NFL events found. Check if NFL tag ID is correct:", nflTagIds);
+              }
               
               let matchedEvents = 0;
               
@@ -1447,6 +1452,18 @@ module.exports = async (req, res) => {
               }
               console.log("[markets] Matched", matchedEvents, "NFL events, found", markets.length, "markets");
               console.log("[markets] Added NFL game markets from events search");
+              if (markets.length === 0 && matchedEvents > 0) {
+                console.log("[markets] WARNING: Found", matchedEvents, "NFL events but 0 markets. This suggests the market filtering is too strict.");
+                // Log sample event details
+                const sampleEvents = allEvents.slice(0, 3);
+                sampleEvents.forEach((e, idx) => {
+                  console.log(`[markets] Sample event ${idx + 1}:`, e.title);
+                  console.log(`[markets]   Markets count:`, e.markets?.length || 0);
+                  if (e.markets && e.markets.length > 0) {
+                    console.log(`[markets]   Sample market questions:`, e.markets.slice(0, 3).map(m => m.question?.substring(0, 80)));
+                  }
+                });
+              }
           } else {
               console.log("[markets] WARNING: No events found from API queries");
               console.log("[markets] Possible reasons:");
