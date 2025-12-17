@@ -1694,7 +1694,21 @@ module.exports = async (req, res) => {
       markets = markets.filter(m => {
         const marketText = `${m.question || ''} ${m.slug || ''} ${m.eventTitle || ''}`.toLowerCase();
         
-        // First, check for NCAA/college football explicitly - must exclude
+        // FIRST: Exclude esports (Counter-Strike, CS2, etc.) - these can have team names that match NFL teams
+        const isEsports = marketText.includes('counter-strike') || 
+                         marketText.includes('cs:') ||
+                         marketText.includes('cs2') ||
+                         marketText.includes('esports') ||
+                         marketText.includes('dota') ||
+                         marketText.includes('league of legends') ||
+                         marketText.includes('lol') ||
+                         marketText.includes('valorant') ||
+                         marketText.includes('rocket league');
+        if (isEsports) {
+          return false; // Strictly exclude esports - team names can overlap with NFL
+        }
+        
+        // Second: check for NCAA/college football explicitly - must exclude
         const hasCollegeFootball = /ncaa|cfb|college\s+football|espn\s+college/.test(marketText);
         if (hasCollegeFootball && !marketText.includes('nfl')) {
           return false; // Strictly exclude college/NCAA markets
@@ -1712,12 +1726,24 @@ module.exports = async (req, res) => {
         if (mentionsOtherSport) {
           return false; // Strictly exclude - don't allow any non-NFL sports
         }
-        // Must have NFL team keyword (positive check)
-        const hasNflIndicator = nflTeamKeywords.some(team => {
-          const teamLower = team.toLowerCase();
-          return marketText.includes(teamLower);
-        }) || marketText.includes('nfl');
-        return hasNflIndicator; // Only keep if it has NFL indicators
+        
+        // Must have NFL keyword OR multiple NFL teams (to avoid false matches with esports)
+        const hasNflKeyword = marketText.includes('nfl') || marketText.includes('national football league');
+        
+        // Count NFL teams mentioned (use word boundaries for abbreviations)
+        const teamMatches = nflTeamKeywords.filter(team => {
+          if (team.length <= 3) {
+            const regex = new RegExp(`\\b${team}\\b`, 'i');
+            return regex.test(marketText);
+          }
+          return marketText.includes(team);
+        });
+        
+        // Require NFL keyword OR at least 2 NFL teams (a matchup)
+        // This prevents false matches where esports teams share names with NFL teams
+        const hasNflIndicator = hasNflKeyword || teamMatches.length >= 2;
+        
+        return hasNflIndicator; // Only keep if it has strong NFL indicators
       });
       console.log("[markets] After sport filter (NFL only):", markets.length, "(removed", beforeSportFilter - markets.length, "non-NFL markets)");
       const beforeFilter = markets.length;
