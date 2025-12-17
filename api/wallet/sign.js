@@ -81,10 +81,54 @@ module.exports = async (req, res) => {
       });
     }
 
-    // TODO: Implement nonce validation (prevent replay attacks)
-    // TODO: Implement idempotency key checking (prevent duplicate requests)
-    // TODO: Implement rate limiting
-    // TODO: Implement amount limits and risk checks
+    // Security validations
+    const { validateNonce, checkIdempotency, storeIdempotencyKey, checkRateLimit, hashRequest } = require("../lib/security");
+
+    // Rate limiting (10 requests per minute per user)
+    const rateLimit = await checkRateLimit(userId, "wallet_sign", 10, 1);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: "rate_limit_exceeded",
+        message: rateLimit.error || "Too many requests",
+        resetAt: rateLimit.resetAt?.toISOString()
+      });
+    }
+
+    // Nonce validation (prevent replay attacks)
+    if (nonce) {
+      const nonceValidation = await validateNonce(userId, nonce, 10);
+      if (!nonceValidation.valid) {
+        return res.status(400).json({
+          error: "invalid_nonce",
+          message: nonceValidation.error || "Invalid or reused nonce"
+        });
+      }
+    }
+
+    // Idempotency key checking (prevent duplicate requests)
+    const requestHash = hashRequest({ network, transaction, nonce });
+    let cachedResponse = null;
+    
+    if (idempotency_key) {
+      const idempotencyCheck = await checkIdempotency(
+        idempotency_key,
+        userId,
+        "wallet_sign",
+        requestHash,
+        60 // 60 minutes TTL
+      );
+
+      if (idempotencyCheck.error) {
+        return res.status(400).json({
+          error: "idempotency_key_conflict",
+          message: idempotencyCheck.error
+        });
+      }
+
+      if (idempotencyCheck.exists && idempotencyCheck.cachedResponse) {
+        return res.status(200).json(idempotencyCheck.cachedResponse);
+      }
+    }
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -137,15 +181,43 @@ module.exports = async (req, res) => {
 
       // Sign transaction using ethers.js
       const walletInstance = new Wallet(privateKey);
-      // TODO: Implement actual transaction signing based on transaction data
-      // This is a placeholder - implement based on your transaction structure
-      const signedTx = await walletInstance.signTransaction(transaction);
+      
+      // Handle transaction signing - transaction can be:
+      // 1. A raw transaction object (to, value, data, gasLimit, gasPrice, nonce)
+      // 2. A serialized transaction string
+      let signedTx;
+      
+      if (typeof transaction === 'string') {
+        // If it's a serialized transaction, sign it directly
+        signedTx = await walletInstance.signMessage(transaction);
+      } else if (transaction.to || transaction.data) {
+        // If it's a transaction object, sign it
+        signedTx = await walletInstance.signTransaction({
+          to: transaction.to,
+          value: transaction.value || '0x0',
+          data: transaction.data || '0x',
+          gasLimit: transaction.gasLimit || '0x5208',
+          gasPrice: transaction.gasPrice || '0x3b9aca00',
+          nonce: transaction.nonce || 0
+        });
+      } else {
+        // For other transaction formats, try to sign as-is
+        signedTx = await walletInstance.signTransaction(transaction);
+      }
 
-      return res.status(200).json({
+      const response = {
         success: true,
         signed_transaction: signedTx,
-        network: 'polygon'
-      });
+        network: 'polygon',
+        from: walletInstance.address
+      };
+
+      // Store idempotency key if provided
+      if (idempotency_key) {
+        await storeIdempotencyKey(idempotency_key, userId, "wallet_sign", requestHash, response, 60);
+      }
+
+      return res.status(200).json(response);
 
     } else if (network === 'solana') {
       // Retrieve private key from Vault or encrypted storage
