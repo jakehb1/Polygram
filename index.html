@@ -1740,7 +1740,7 @@
               Disconnect
             </button>
             <div id="tonConnectButtonContainer" style="margin-left: 8px; min-width: 120px;"></div>
-            <button class="wallet-action-btn" id="connectTonBtnFallback" title="Connect TON Wallet" style="margin-left: 8px;">
+            <button class="wallet-action-btn" id="connectTonBtnFallback" title="Connect TON Wallet" style="margin-left: 8px; display: inline-flex;">
               Connect TON
             </button>
           </div>
@@ -2244,46 +2244,71 @@
               
               try {
                 console.log('[TON Connect] Opening modal...');
+                console.log('[TON Connect] tonConnectUI available:', !!tonConnectUI);
+                console.log('[TON Connect] isTelegram:', isTelegram);
+                
                 const originalText = fallbackBtn.textContent;
                 fallbackBtn.disabled = true;
                 fallbackBtn.textContent = 'Opening...';
                 
                 // Open modal - for Telegram it should use Telegram Wallet
                 // Note: openModal() returns a promise that resolves when user connects
-                // We don't await it to avoid blocking, but we handle errors
                 try {
-                  const modalPromise = tonConnectUI.openModal().catch(err => {
-                    console.error('[TON Connect] Modal error:', err);
-                    fallbackBtn.disabled = false;
-                    fallbackBtn.textContent = originalText;
-                    
-                    if (isTelegram) {
-                      alert('Failed to connect wallet. Please:\n1. Make sure Telegram Wallet is enabled in Telegram Settings\n2. Try again\n\nIf the modal is stuck, close and reopen the app.');
-                    } else {
-                      alert('Failed to open wallet connection. Please try again.');
-                    }
-                  });
+                  console.log('[TON Connect] Calling tonConnectUI.openModal()...');
+                  const modalPromise = tonConnectUI.openModal();
                   
-                  console.log('[TON Connect] Modal open called (non-blocking)');
+                  // Handle the promise properly
+                  modalPromise
+                    .then(() => {
+                      console.log('[TON Connect] Modal opened successfully');
+                      // Reset button after modal opens
+                      setTimeout(() => {
+                        fallbackBtn.disabled = false;
+                        fallbackBtn.textContent = originalText;
+                      }, 1000);
+                    })
+                    .catch(err => {
+                      console.error('[TON Connect] Modal error:', err);
+                      console.error('[TON Connect] Error details:', {
+                        message: err.message,
+                        stack: err.stack,
+                        name: err.name
+                      });
+                      fallbackBtn.disabled = false;
+                      fallbackBtn.textContent = originalText;
+                      
+                      if (isTelegram) {
+                        alert('Failed to connect wallet. Please:\n1. Make sure Telegram Wallet is enabled in Telegram Settings\n2. Try again\n\nIf the modal is stuck, close and reopen the app.');
+                      } else {
+                        alert('Failed to open wallet connection. Please try again.');
+                      }
+                    });
+                  
+                  console.log('[TON Connect] Modal open called');
                   
                   // Show helpful message for Telegram users
                   if (isTelegram) {
-                    console.log('[TON Connect] If modal is stuck loading:\n1. Check if Telegram Wallet is enabled\n2. Try closing and reopening the app\n3. The modal should show wallet options');
+                    console.log('[TON Connect] In Telegram - should show native Telegram Wallet options');
                   }
                   
                   // Reset button after a delay (user can click again if needed)
                   setTimeout(() => {
-                    fallbackBtn.disabled = false;
-                    fallbackBtn.textContent = originalText;
-                  }, 2000);
+                    if (!fallbackBtn.disabled) {
+                      fallbackBtn.disabled = false;
+                      fallbackBtn.textContent = originalText;
+                    }
+                  }, 3000);
                   
-                  // Don't await - let modal handle its own lifecycle
-                  // The onStatusChange handler will update UI when wallet connects
                 } catch (openError) {
-                  console.error('[TON Connect] Error opening modal:', openError);
+                  console.error('[TON Connect] Error opening modal (catch block):', openError);
+                  console.error('[TON Connect] Error details:', {
+                    message: openError.message,
+                    stack: openError.stack,
+                    name: openError.name
+                  });
                   fallbackBtn.disabled = false;
                   fallbackBtn.textContent = originalText;
-                  alert('Error: ' + openError.message);
+                  alert('Error opening wallet connection: ' + openError.message);
                 }
                 
               } catch (error) {
@@ -2300,19 +2325,32 @@
             };
         }
         
-        // Hide fallback button when TON Connect button is rendered
+        // Show/hide fallback button based on TON Connect button rendering
         if (connectContainer && fallbackBtn) {
+            // Always show fallback button initially
+            fallbackBtn.style.display = 'inline-flex';
+            
             // Check if TON Connect button was rendered (it should appear within a few ms)
             setTimeout(() => {
               if (connectContainer.children.length > 0) {
                 console.log('[TON Connect] TON Connect button rendered, hiding fallback');
-                fallbackBtn.style.display = 'none';
+                // Only hide fallback if TON Connect button is actually visible and clickable
+                const tonConnectBtn = connectContainer.querySelector('button');
+                if (tonConnectBtn && tonConnectBtn.offsetParent !== null) {
+                  fallbackBtn.style.display = 'none';
+                } else {
+                  console.log('[TON Connect] TON Connect button exists but not visible, keeping fallback');
+                  fallbackBtn.style.display = 'inline-flex';
+                }
               } else {
                 // TON Connect button didn't render, show fallback
                 console.log('[TON Connect] TON Connect button not rendered, showing fallback');
                 fallbackBtn.style.display = 'inline-flex';
               }
-            }, 1000);
+            }, 2000); // Increased timeout to give TON Connect more time to render
+        } else if (fallbackBtn) {
+            // If container doesn't exist, always show fallback
+            fallbackBtn.style.display = 'inline-flex';
         }
 
         // Listen for wallet connection status changes (Phase 1: Enhanced Session Management)
@@ -2367,7 +2405,10 @@
               if (tonCopyBtn) tonCopyBtn.style.display = 'inline-flex';
               if (connectContainer) connectContainer.style.display = 'none';
               const fallbackBtn = document.getElementById('connectTonBtnFallback');
-              if (fallbackBtn) fallbackBtn.style.display = 'none';
+              if (fallbackBtn) {
+                fallbackBtn.style.display = 'none';
+                fallbackBtn.disabled = false; // Reset disabled state
+              }
               const disconnectBtn = document.getElementById('disconnectTonBtn');
               if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
               
