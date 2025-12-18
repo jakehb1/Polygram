@@ -1736,6 +1736,9 @@
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
             </button>
+            <button class="wallet-action-btn" id="disconnectTonBtn" title="Disconnect TON Wallet" style="display: none; margin-left: 8px; background: var(--red); color: white; border-color: var(--red);">
+              Disconnect
+            </button>
             <div id="tonConnectButtonContainer" style="margin-left: 8px; min-width: 120px;"></div>
             <button class="wallet-action-btn" id="connectTonBtnFallback" title="Connect TON Wallet" style="margin-left: 8px;">
               Connect TON
@@ -2333,6 +2336,8 @@
               if (connectContainer) connectContainer.style.display = 'none';
               const fallbackBtn = document.getElementById('connectTonBtnFallback');
               if (fallbackBtn) fallbackBtn.style.display = 'none';
+              const disconnectBtn = document.getElementById('disconnectTonBtn');
+              if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
               
               // Phase 1.2: Save session data to backend (address, app name, network, session data)
               const sessionData = {
