@@ -2185,12 +2185,12 @@
           throw new Error('TON Connect UI initialization failed');
         }
 
-          // Set up fallback button click handler immediately (container already checked above)
-          const fallbackBtn = document.getElementById('connectTonBtnFallback');
+        // Set up fallback button click handler immediately (container already checked above)
+        const fallbackBtn = document.getElementById('connectTonBtnFallback');
           
-          // Always set up click handler for fallback button
-          if (fallbackBtn) {
-            fallbackBtn.onclick = async (e) => {
+        // Always set up click handler for fallback button
+        if (fallbackBtn) {
+          fallbackBtn.onclick = async (e) => {
               e.preventDefault();
               e.stopPropagation();
               console.log('[TON Connect] Fallback button clicked');
