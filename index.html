@@ -9,28 +9,78 @@
   <!-- Load TON Connect UI with fallback CDN -->
   <script>
     (function() {
+      // Global flag to track if library is loaded
+      window.TON_CONNECT_LOADED = false;
+      window.TON_CONNECT_LOADING = false;
+      window.TON_CONNECT_LOAD_ERROR = null;
+      
       function loadTONConnect() {
+        // Prevent multiple loads
+        if (window.TON_CONNECT_LOADING || window.TON_CONNECT_LOADED) {
+          return Promise.resolve();
+        }
+        
+        window.TON_CONNECT_LOADING = true;
+        
         return new Promise((resolve, reject) => {
+          console.log('[TON Connect] Starting to load library from CDN...');
+          
           // Try unpkg first
           const script1 = document.createElement('script');
           script1.src = 'https://unpkg.com/@tonconnect/ui@2.3.1/dist/tonconnect-ui.min.js';
+          script1.async = true;
           script1.onload = () => {
-            console.log('[TON Connect] Loaded from unpkg');
+            console.log('[TON Connect] ✅ Loaded from unpkg');
+            window.TON_CONNECT_LOADED = true;
+            window.TON_CONNECT_LOADING = false;
+            window.TON_CONNECT_LOAD_ERROR = null;
+            
+            // Dispatch custom event to notify that library is ready
+            window.dispatchEvent(new CustomEvent('tonconnect-loaded'));
             resolve();
           };
-          script1.onerror = () => {
-            console.warn('[TON Connect] unpkg failed, trying jsdelivr...');
+          script1.onerror = (error) => {
+            console.warn('[TON Connect] ❌ unpkg failed, trying jsdelivr...', error);
             // Try jsdelivr as fallback
             const script2 = document.createElement('script');
             script2.src = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@2.3.1/dist/tonconnect-ui.min.js';
+            script2.async = true;
             script2.onload = () => {
-              console.log('[TON Connect] Loaded from jsdelivr');
+              console.log('[TON Connect] ✅ Loaded from jsdelivr');
+              window.TON_CONNECT_LOADED = true;
+              window.TON_CONNECT_LOADING = false;
+              window.TON_CONNECT_LOAD_ERROR = null;
+              
+              // Dispatch custom event to notify that library is ready
+              window.dispatchEvent(new CustomEvent('tonconnect-loaded'));
               resolve();
             };
-            script2.onerror = () => {
-              console.error('[TON Connect] Failed to load from both CDNs');
-              // Don't reject - allow app to continue without TON Connect
-              resolve();
+            script2.onerror = (error) => {
+              console.error('[TON Connect] ❌ Failed to load from both CDNs', error);
+              window.TON_CONNECT_LOADING = false;
+              window.TON_CONNECT_LOAD_ERROR = 'Failed to load from both CDNs';
+              
+              // Try one more time with a different CDN after delay
+              setTimeout(() => {
+                console.log('[TON Connect] Retrying with cdnjs...');
+                const script3 = document.createElement('script');
+                script3.src = 'https://cdnjs.cloudflare.com/ajax/libs/tonconnect-ui/2.3.1/tonconnect-ui.min.js';
+                script3.async = true;
+                script3.onload = () => {
+                  console.log('[TON Connect] ✅ Loaded from cdnjs');
+                  window.TON_CONNECT_LOADED = true;
+                  window.TON_CONNECT_LOADING = false;
+                  window.TON_CONNECT_LOAD_ERROR = null;
+                  window.dispatchEvent(new CustomEvent('tonconnect-loaded'));
+                  resolve();
+                };
+                script3.onerror = () => {
+                  console.error('[TON Connect] ❌ All CDNs failed');
+                  window.TON_CONNECT_LOAD_ERROR = 'All CDNs failed';
+                  resolve(); // Don't reject - allow app to continue
+                };
+                document.head.appendChild(script3);
+              }, 2000);
             };
             document.head.appendChild(script2);
           };
@@ -38,9 +88,19 @@
         });
       }
       
-      // Load TON Connect UI
+      // Load TON Connect UI immediately
       loadTONConnect().then(() => {
-        console.log('[TON Connect] Library loading complete');
+        if (window.TON_CONNECT_LOADED) {
+          console.log('[TON Connect] ✅ Library loading complete - TonConnectUI available');
+          // Check if it's actually available
+          if (typeof TonConnectUI !== 'undefined') {
+            console.log('[TON Connect] ✅ TonConnectUI is defined and ready');
+          } else {
+            console.warn('[TON Connect] ⚠️ Library loaded but TonConnectUI is not defined');
+          }
+        } else {
+          console.warn('[TON Connect] ⚠️ Library loading failed');
+        }
       });
     })();
   </script>
@@ -2230,9 +2290,23 @@
               
               if (!tonConnectUI) {
                 console.error('[TON Connect] tonConnectUI not initialized');
+                console.error('[TON Connect] Attempting to re-initialize...');
                 // Try to initialize again
-                setTimeout(() => initTONConnect(), 500);
-                alert('TON Connect is initializing. Please wait a moment and try again.');
+                setTimeout(() => {
+                  initTONConnect();
+                  // Try again after initialization
+                  setTimeout(() => {
+                    if (tonConnectUI) {
+                      console.log('[TON Connect] Re-initialized, trying to open modal...');
+                      tonConnectUI.openModal().catch(err => {
+                        console.error('[TON Connect] Still failed after re-init:', err);
+                        alert('TON Connect failed to initialize. Please refresh the page.');
+                      });
+                    } else {
+                      alert('TON Connect is not available. Please refresh the page.');
+                    }
+                  }, 1000);
+                }, 500);
                 return;
               }
               
