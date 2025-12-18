@@ -2257,10 +2257,10 @@
                 }
               }
             };
-          }
-          
-          // Hide fallback button when TON Connect button is rendered
-          if (connectContainer && fallbackBtn) {
+        }
+        
+        // Hide fallback button when TON Connect button is rendered
+        if (connectContainer && fallbackBtn) {
             // Check if TON Connect button was rendered (it should appear within a few ms)
             setTimeout(() => {
               if (connectContainer.children.length > 0) {
@@ -2272,10 +2272,10 @@
                 fallbackBtn.style.display = 'inline-flex';
               }
             }, 1000);
-          }
+        }
 
-          // Listen for wallet connection status changes (Phase 1: Enhanced Session Management)
-          tonConnectUI.onStatusChange((walletInfo) => {
+        // Listen for wallet connection status changes (Phase 1: Enhanced Session Management)
+        tonConnectUI.onStatusChange((walletInfo) => {
             console.log('[TON Connect] Wallet status changed:', walletInfo);
             
             if (walletInfo) {
@@ -2385,10 +2385,10 @@
                 state.wallet.tonNetwork = null;
               }
             }
-          });
+        });
 
-          // Phase 1.3: Check if wallet is already connected (reconnect handling)
-          const walletInfo = tonConnectUI.wallet;
+        // Phase 1.3: Check if wallet is already connected (reconnect handling)
+        const walletInfo = tonConnectUI.wallet;
           if (walletInfo) {
             console.log('[TON Connect] Wallet already connected (reconnect):', walletInfo.account.address);
             const tonAddress = walletInfo.account.address;
@@ -2443,9 +2443,9 @@
             
             setupCopyButton('copyTonBtn', tonAddress);
             setupClickableAddress('tonWalletAddress', tonAddress);
-          }
-          
-          console.log('[TON Connect] Initialization complete');
+        }
+        
+        console.log('[TON Connect] Initialization complete');
       } catch (error) {
         console.error('[TON Connect] Initialization error:', error);
       }
@@ -2593,12 +2593,6 @@
       } catch (err) {
         console.error('[TON Proof] Error:', err);
         // Authentication failure shouldn't block app usage
-      }
-    }
-        console.log('[TON Connect] TON address saved:', data);
-      } catch (error) {
-        console.error('[TON Connect] Error saving TON address:', error);
-        // Don't show error to user - address is still connected in TON Connect
       }
     }
 
