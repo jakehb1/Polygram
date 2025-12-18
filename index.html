@@ -298,17 +298,14 @@
     .header-logo img {
       height: 32px;
       width: auto;
+      max-width: 150px;
       object-fit: contain;
+      display: block;
     }
-    .header-logo-icon {
-      font-size: 20px;
-    }
+    /* Hide old logo elements if they exist */
+    .header-logo-icon,
     .header-logo-text {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: -0.02em;
+      display: none !important;
     }
 
     /* Cards */
