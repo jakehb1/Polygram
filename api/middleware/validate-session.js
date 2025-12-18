@@ -3,6 +3,7 @@
 
 const jwt = require("jsonwebtoken");
 const { createClient } = require("@supabase/supabase-js");
+const { logSecurityEvent } = require("../lib/logger");
 const crypto = require("crypto");
 
 /**

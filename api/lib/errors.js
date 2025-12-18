@@ -57,7 +57,7 @@ const ERROR_CODES = {
  */
 function logError(error, context = {}) {
   const { logError: loggerError } = require('./logger');
-  return loggerError(error.message || 'Unknown error', error, context);
+  return loggerError(error?.message || 'Unknown error', error, context);
 }
 
 /**

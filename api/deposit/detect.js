@@ -162,8 +162,23 @@ module.exports = async (req, res) => {
               deposit_id: deposit.id,
               source_tx_hash: deposit.ton_tx_hash
             });
+
+            // Log transaction
+            logTransaction('deposit_detected', {
+              user_id: wallet.user_id,
+              deposit_id: deposit.id,
+              ton_tx_hash: deposit.ton_tx_hash,
+              amount_ton: deposit.amount_ton,
+              amount_usdc: amountUSDC,
+              conversion_rate: conversionRate,
+              ledger_entry_id: ledgerEntryId
+            });
           } catch (ledgerError) {
-            console.error("[deposit/detect] Ledger entry creation failed:", ledgerError);
+            logError(ledgerError, {
+              operation: 'ledger_entry_creation',
+              user_id: wallet.user_id,
+              deposit_id: deposit.id
+            });
             // Continue even if ledger fails
           }
           

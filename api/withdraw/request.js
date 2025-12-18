@@ -6,6 +6,7 @@ const { createClient } = require("@supabase/supabase-js");
 const { validateSession } = require("../middleware/validate-session");
 const { checkIdempotency, storeIdempotencyKey, checkRateLimit, hashRequest } = require("../lib/security");
 const { handleApiError, validateAmount, validateTONAddress, ERROR_CODES } = require("../lib/errors");
+const { logError, logTransaction, logSecurityEvent } = require("../lib/logger");
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -226,8 +227,23 @@ module.exports = async (req, res) => {
           },
           withdrawal_id: withdrawal.id
         });
+
+        // Log transaction
+        logTransaction('withdrawal_requested', {
+          user_id: userId,
+          withdrawal_id: withdrawal.id,
+          request_id: withdrawal.request_id,
+          amount_usdc: amount_usdc,
+          ton_destination: ton_destination_address,
+          risk_check_passed: riskCheckPassed,
+          ledger_entry_id: ledgerEntryId
+        });
       } catch (ledgerError) {
-        console.error("[withdraw/request] Ledger entry creation failed:", ledgerError);
+        logError(ledgerError, {
+          operation: 'ledger_entry_creation',
+          user_id: userId,
+          withdrawal_id: withdrawal.id
+        });
         // Continue even if ledger fails
       }
 

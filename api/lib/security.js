@@ -3,6 +3,7 @@
 
 const { createClient } = require("@supabase/supabase-js");
 const crypto = require("crypto");
+const { logSecurityEvent } = require("./logger");
 
 /**
  * Validate and record a nonce to prevent replay attacks
